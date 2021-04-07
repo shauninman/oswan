@@ -40,16 +40,6 @@ void print_string(const int8_t *s, const  uint16_t fg_color, const uint16_t bg_c
 
 void print_string_video(int16_t x, const int16_t y, const int8_t *s) 
 {
-	if (GameConf.m_ScreenRatio != 1)
-	{
-		SDL_Rect rect;
-		rect.x = 0;
-		rect.y = 0;
-		rect.w = 18;
-		rect.h = 18;
-		SDL_FillRect(actualScreen, &rect, 0);
-	}
-	
 	int32_t i;
 	const int8_t j = strlen(s);
 	for(i = 0; i < j; i++, x += 8) 

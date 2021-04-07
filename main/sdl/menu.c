@@ -188,7 +188,6 @@ void screen_showtopmenu(void)
 #ifdef NATIVE_RESOLUTION
 	SetVideo(0);
 #endif
-
 	clear_screen_menu();
 
 	/* Display and manage main menu	*/
@@ -196,16 +195,12 @@ void screen_showtopmenu(void)
 
 	/* save actual config	*/
 	system_savecfg(current_conf_app);
-	
-	if (!GameConf.m_ScreenRatio)
-	{
+
 #ifdef NATIVE_RESOLUTION
-		SetVideo(1);
+	SetVideo(1);
 #endif
-		clear_screen_menu();
-		flip_screen(actualScreen);
-	}
-	
+	clear_screen_menu();
+	flip_screen(actualScreen);
 }
 
 /* find a filename for bmp or state saving */
@@ -253,6 +248,7 @@ void menuReset(void)
 void menuQuit(void) {
 	if (cartridge_IsLoaded()) 
 	{
+		system_saveloadgamecfg(1);
 		WsDeInit();
 	}
 	gameMenu=false;
@@ -304,7 +300,8 @@ int8_t strcmp_function(const int8_t *s1, const int8_t *s2)
 
 #define DRAW_RECT_CLEAR	\
 	clear_screen_menu();	\
-	draw_bluerect_file(i_hold);	\
+	draw_bluerect_flag = 1;
+//	draw_bluerect_file(i_hold);	\
 
 int32_t load_file(const int8_t **wildcards, int8_t *result) 
 {
@@ -325,6 +322,7 @@ int32_t load_file(const int8_t **wildcards, int8_t *result)
 	uint32_t i;
 	
 	uint16_t i_hold = 1;
+	uint16_t draw_bluerect_flag = 1;
 
 	uint32_t current_filedir_scroll_value;
 	uint32_t current_filedir_selection;
@@ -462,7 +460,9 @@ int32_t load_file(const int8_t **wildcards, int8_t *result)
 					}
 				}
 			}
-		
+
+			if (draw_bluerect_flag == 1) { draw_bluerect_file(i_hold); draw_bluerect_flag = 0; }
+
 			/* A - choose file or enter directory	*/
 			if (button_state[4] == 1) 
 			{ 
@@ -603,6 +603,7 @@ int32_t load_file(const int8_t **wildcards, int8_t *result)
 
 void menuFileBrowse(void) 
 {
+	if (cartridge_IsLoaded()) system_saveloadgamecfg(1);
 	if (load_file(file_ext, gameName) != -1) /* exit if file is chosen	*/
 	{ 
 		gameMenu=false;
@@ -671,7 +672,7 @@ void menuSaveState(void)
 		strcpy(strrchr(szFile, '.'), ".sta");
 #endif
 		print_string("Saving...", COLOR_OK, COLOR_BG, 8,240-5 -10*3);
-		WsSaveState(szFile, GameConf.reserved2);
+		WsSaveState(szFile, GameConf.save_slot);
 		print_string("Save OK",COLOR_OK,COLOR_BG, 8+10*8,240-5 -10*3);
 		flip_screen(actualScreen);
 	}
@@ -695,13 +696,32 @@ void menuLoadState(void)
 		strcpy(strrchr(szFile, '.'), ".sta");
 #endif
 		print_string("Loading...", COLOR_OK, COLOR_BG, 8,240-5 -10*3);
-		WsLoadState(szFile, GameConf.reserved1);
+		WsLoadState(szFile, GameConf.load_slot);
 		print_string("Load OK",COLOR_OK,COLOR_BG, 8+10*8,240-5 -10*3);
 		flip_screen(actualScreen);
 		gameMenu=false;
 	}
 }
 
+
+void system_initcfg(void) 
+{
+		// Default Parameters
+		GameConf.input_layout = 0;
+		GameConf.load_slot = 0;
+		GameConf.save_slot = 0;
+		GameConf.quicksave = 0;
+		GameConf.m_ScreenRatio=1; 	/* Sets the Ratio to fullscren by default	*/
+		GameConf.m_DisplayFPS=0; 	/* 0 = no, 1 = Yes	*/
+		getcwd(GameConf.current_dir_rom, MAX__PATH);
+}
+
+void system_saveloadgamecfg(const int32_t saveload)
+{
+	int8_t gamecfgfilename[256];
+	snprintf(gamecfgfilename, sizeof(gamecfgfilename), "%s%s%s.cfg", PATH_DIRECTORY, SAVE_DIRECTORY, strrchr(gameName,'/')+1);
+	if (saveload) system_savecfg(gamecfgfilename); else system_loadcfg(gamecfgfilename);
+}
 
 void system_loadcfg(const int8_t *cfg_name) 
 {
@@ -711,33 +731,11 @@ void system_loadcfg(const int8_t *cfg_name)
   {
 	read(fd, &GameConf, sizeof(GameConf));
     close(fd);
-
 #ifndef NATIVE_RESOLUTION
-		clear_screen_menu();
+		Set_DrawRegion();
 #endif
 		flip_screen(actualScreen);
-
   }
-  else 
-  {
-		/*
-		UP  DOWN  LEFT RIGHT  A  B  X  Y  R  L  START  SELECT
-		0,    1,    2,    3,  4, 5, 4, 5, 4, 5,     6,     6
-		*/
-		GameConf.OD_Joy[ 0] = 0;  GameConf.OD_Joy[ 1] = 1;
-		GameConf.OD_Joy[ 2] = 2;  GameConf.OD_Joy[ 3] = 3;
-		GameConf.OD_Joy[ 4] = 4;  GameConf.OD_Joy[ 5] = 5;
-		GameConf.OD_Joy[ 6] = 4;  GameConf.OD_Joy[ 7] = 5;
-		GameConf.OD_Joy[ 8] = 4;  GameConf.OD_Joy[ 9] = 5;
-		GameConf.OD_Joy[10] = 6;  GameConf.OD_Joy[11] = 6;
-		GameConf.reserved1 = 0;
-		GameConf.reserved2 = 0;
-		GameConf.reserved3 = 0;
-		GameConf.sndLevel=40;
-		GameConf.m_ScreenRatio=1; 	/* Sets the Ratio to fullscren by default	*/
-		GameConf.m_DisplayFPS=0; 	/* 0 = no, 1 = Yes	*/
-		getcwd(GameConf.current_dir_rom, MAX__PATH);
-	}
 }
 
 void system_savecfg(const int8_t *cfg_name) 

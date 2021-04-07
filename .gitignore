@@ -17,7 +17,7 @@
 /oswan/main/*.sh
 /oswan/main/*.txt
 oswan-rs97/*.dge
-./oswan
+oswan
 /opk/oswan
 main/sdl/*.o
 minizip/*.o

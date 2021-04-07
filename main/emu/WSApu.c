@@ -1,35 +1,30 @@
 #include <stdio.h>
+#include <math.h>
 
 #include <SDL/SDL.h>
 
 #include "WSHard.h"
 #include "WSApu.h"
 
-#define BUFSIZEN    0x10000
-#define BPSWAV      12000 /* WSのHblankが12KHz */
-
-/*4096*/
-/*2048*/
-#define SND_BNKSIZE 2048
-#define MULT 3
-
-#define SND_RNGSIZE (10 * SND_BNKSIZE)
-#define WAV_VOLUME 30
-
 SOUND Ch[4];
 SWEEP Swp;
 NOISE Noise; 
 int8_t VoiceOn;
-int16_t Sound[7] = {1, 1, 1, 1, 1, 1, 1};
 
-static int32_t convert_multiplier = MULT;
+#define BUFSIZEN    0x1000	// ノイズ用テーブル: 0x10000 だったけどそんなにいらないと思う
+#define BPSWAV      12000	/* WSのHblankが12KHz */
+
+#define WAV_VOLUME 30
 
 static uint8_t PData[4][32];
 static uint8_t PDataN[8][BUFSIZEN];
-static uint32_t RandData[BUFSIZEN];
-static int16_t sndbuffer[SND_RNGSIZE][2]; /* Sound Ring Buffer */
+static uint16_t RandData[BUFSIZEN];
+static int16_t sndbuffer[SND_RNGSIZE];	/* Sound Ring Buffer */	//モノラルに変更
 
 static int32_t rBuf, wBuf;
+static int32_t freqpush[4];
+static int32_t volLpush[4];
+static int32_t volRpush[4];
 
 extern uint8_t *Page[16];
 extern uint8_t IO[0x100];
@@ -37,47 +32,26 @@ extern uint8_t IO[0x100];
 SDL_mutex *sound_mutex;
 SDL_cond *sound_cv;
 
-static uint32_t read_pos;
-
 int32_t apuBufLen(void)
 {
-	if (wBuf >= rBuf) 
-	{
-		read_pos = 0;
-		return (wBuf - rBuf);
-	}
+	if (wBuf >= rBuf) return (wBuf - rBuf);
 	return SND_RNGSIZE + wBuf - rBuf;
 }
 
-
 void mixaudioCallback(void *userdata, uint8_t *stream, int32_t len)
 {
-	int32_t i = len;
-	uint16_t *buffer = (uint16_t *) stream;
+	uint16_t *buffer   = (uint16_t *) stream;
+	uint32_t i;
 	
-    if(len <= 0 || !buffer)
-	{
-		return;
-	}
-	   
+	if ((len <= 0) || !buffer || (apuBufLen() < len)) return;
+	
 	SDL_LockMutex(sound_mutex);
 	
-	if (apuBufLen() < len) 
+	for(i = 0; i < len; i += 4)
 	{
-		memset(stream,0,len);
-	}
-	else
-	{
-		while(i > 3) 
-		{
-			*buffer++ = sndbuffer[rBuf][0];
-			*buffer++ = sndbuffer[rBuf][1];
-			if (++rBuf >= SND_RNGSIZE) 
-			{
-				rBuf = 0;
-			}
-			i -= 4;
-		}
+		*buffer++ = sndbuffer[rBuf++];
+		*buffer++ = sndbuffer[rBuf++];
+		if (rBuf >= SND_RNGSIZE) rBuf = 0;
 	}
 
 	SDL_UnlockMutex(sound_mutex);
@@ -99,8 +73,6 @@ void apuInit(void)
 {
     int32_t i, j;
     
-    convert_multiplier = MULT;
-
     for (i = 0; i < 4; i++)
     {
         for (j = 0; j < 32; j++)
@@ -255,7 +227,7 @@ uint8_t apuVoice(void)
             b = 0;
         }
     }
-    return ((VoiceOn && Sound[4]) ? IO[SND2VOL] : 0x80);
+    return ((VoiceOn) ? IO[SND2VOL] : 0x80);
 }
 
 void apuSweep(void)
@@ -283,103 +255,72 @@ uint16_t apuShiftReg(void)
     return RandData[nPos];
 }
 
+void apuWaveSet0(void)		// 12 → 24kHzへの拡張・周波数と音量だけ保存
+{
+	uint8_t channel;
+	for (channel = 0; channel < 4; channel++)
+	{
+		freqpush[channel] = Ch[channel].freq;
+		volLpush[channel] = Ch[channel].volL;
+		volRpush[channel] = Ch[channel].volR;
+	}
+}
+
 void apuWaveSet(void)
 {
-	/* Do you like them, The Wonders of uninitialized variables ?
-	* Especially when the compiler gives you no insight on that ?
-	* If lVol and rVol are not initiliased, then it will sound wrong on
-	* games like Klonoa with voices. After initializing them,
-	* it would work and it would still sound fine if we're using a 16-bits
-	* size for them. This should hopefully make things faster on
-	* some platforms. No FPU needed !
-	*/
-	static uint16_t point[4] = {0, 0, 0, 0};
-    static uint16_t preindex[4] = {0, 0, 0, 0};
-    uint16_t value = 0, lVol[4] = {0, 0, 0, 0}, rVol[4] = {0, 0, 0, 0};
-    uint16_t LL, RR, vVol;
-    uint8_t channel;
-    uint16_t index;
-    uint16_t i;
+//	TRIMUI 変更点
+//	・マスク機能はないので sound[x] を削除
+//	・ステレオからモノラルに変更
+//	・合成は12 x 2 = 24kHz (PCM/ノイズは12kHzのまま)
+    static uint32_t point[4] = {1, 1, 1, 1};
+    static uint32_t preindex[4] = {0, 0, 0, 0};
+    int32_t Vol1 = 0, Vol2 = 0;
+    int32_t value1, value2, vVol;
+    uint32_t index1, index2, channel;
+
+#ifdef AUDIOFRAMESKIP
+    while (apuBufLen() >= (SND_RNGSIZE - 16)) SDL_Delay(1);	// buffer overrun wait
+#endif
 
     SDL_LockMutex(sound_mutex);
     
-    apuSweep();
+    apuSweep();		// sweepを計算 (12kHz)
     
     for (channel = 0; channel < 4; channel++)
     {
         if (Ch[channel].on)
         {
-            if (channel == 1 && VoiceOn && Sound[4])
+            if (channel == 1 && VoiceOn)	continue;	// PCM合成中はch1を再生しない
+            else if (channel == 3 && Noise.on)	// ch3がノイズの場合
             {
-                continue;
+		index1 = ((3072000 / BPSWAV) * point[3] / (2048 - Ch[3].freq)) % BUFSIZEN;
+		value1 = PDataN[Noise.pattern][index1] - 8;
+		value2 = value1;		// ノイズは12kHzで十分
+                if ((index1 == 0) && preindex[3])	point[3] = 0;
+		preindex[3] = index1; point[3]++;
             }
-            else if (channel == 2 && Swp.on && !Sound[5])
-            {
-                continue;
+            else
+            {	// 3072000 / BPSWAV(12000) = 256
+		index1 = ( (point[channel]<<9) - 256) / (2048 - freqpush[channel]);	// 中間処理
+		index2 = ( (point[channel]<<9)      ) / (2048 - Ch[channel].freq );
+		index1 = ((index1 >> 1) + (index1 & 1)) & 0x1f;	// 四捨五入
+		index2 = ((index2 >> 1) + (index2 & 1)) & 0x1f;	// (あんまり変わらないかも、要検討)
+                if ((index2 == 0) && preindex[channel])	point[channel] = 0;
+		preindex[channel] = index2; point[channel]++;
+		value1 = PData[channel][index1] - 8;
+		value2 = PData[channel][index2] - 8;
             }
-            else if (channel == 3 && Noise.on && Sound[6])
-            {
-                index = (3072000 / BPSWAV) * point[3] / (2048 - Ch[3].freq);
-                if ((index %= BUFSIZEN) == 0 && preindex[3])
-                {
-                    point[3] = 0;
-                }
-                
-				value = PDataN[Noise.pattern][index] - 8;
-            }
-            else if (Sound[channel] == 0)
-            {
-                continue;
-            }
-            else 
-            {
-                index = (3072000 / BPSWAV) * point[channel] / (2048 - Ch[channel].freq);
-                if ((index %= 32) == 0 && preindex[channel])
-                {
-                    point[channel] = 0;
-                }
-                value = PData[channel][index] - 8;
-            }
-            preindex[channel] = index;
-            point[channel]++;
-            lVol[channel] = value * Ch[channel].volL; /* -8*15=-120, 7*15=105 */
-            rVol[channel] = value * Ch[channel].volR;
+		// モノラル化：どちらか音量の大きい方を採用
+		Vol1 += value1 * (volLpush[channel] > volRpush[channel] ? volLpush[channel] : volRpush[channel]);
+		Vol2 += value2 * (Ch[channel].volL > Ch[channel].volR ? Ch[channel].volL : Ch[channel].volR);
         }
-		else
-		{
-			lVol[channel] = 0;
-			rVol[channel] = 0;	
-		}
     }
-    
-    vVol = (apuVoice() - 0x80);
-    /* mix 16bits wave -32768 ～ +32767 32768/120 = 273 */
-    LL = (lVol[0] + lVol[1] + lVol[2] + lVol[3] + vVol) * WAV_VOLUME;
-    RR = (rVol[0] + rVol[1] + rVol[2] + rVol[3] + vVol) * WAV_VOLUME;
+    vVol = (apuVoice() - 0x80);		// PCM合成 (12kHz)
 
-	if (convert_multiplier == MULT) 
-	{
-		convert_multiplier = (MULT+1);
-	}
-	else
-	{
-		convert_multiplier = MULT;
-	}
+    sndbuffer[wBuf++] = (Vol1 + vVol) * WAV_VOLUME;
+    sndbuffer[wBuf++] = (Vol2 + vVol) * WAV_VOLUME;
+    if (wBuf >= SND_RNGSIZE) wBuf = 0;
 
-	for (i=0;i<convert_multiplier;i++)	/* 48000/12000 */
-	{ 
-		sndbuffer[wBuf][0] = LL;
-		sndbuffer[wBuf][1] = RR;
-		if (++wBuf >= SND_RNGSIZE)
-		{
-			wBuf = 0;
-		}
-	}
-    
-#ifdef SOUND_ON
-	SDL_UnlockMutex(sound_mutex);
-	SDL_CondSignal(sound_cv);
-#endif
-    
+    SDL_UnlockMutex(sound_mutex);
+    SDL_CondSignal(sound_cv);
 }
-

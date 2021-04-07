@@ -61,11 +61,11 @@ void graphics_paint(void)
 		pastFPS = 0;
 		lastTick = newTick;
 	}
-	#ifdef FRAMESKIP
-	FrameSkip = 80 - FPS;
-	if (FrameSkip < 0) FrameSkip = 0;
-	else if (FrameSkip > 4) FrameSkip=4;
-	#endif
+//	#ifdef FRAMESKIP
+//	FrameSkip = 80 - FPS;
+//	if (FrameSkip < 0) FrameSkip = 0;
+//	else if (FrameSkip > 4) FrameSkip=4;
+//	#endif
 }
 
 void initSDL(void) 
@@ -79,10 +79,10 @@ void initSDL(void)
 	SDL_AudioSpec fmt, retFmt;
 	
 	/*	Set up SDL sound */
-	fmt.freq = 44800;   
-	fmt.samples = 1024;
+	fmt.freq = 24000;		// 24kHz
+	fmt.samples = 512;		// ÇøÇ¢Ç≥Çﬂ
 	fmt.format = AUDIO_S16SYS;
-	fmt.channels = 2;
+	fmt.channels = 1;		// ÉÇÉmÉâÉã
 	fmt.callback = mixaudioCallback;
 	fmt.userdata = NULL;
 
@@ -136,6 +136,7 @@ int main(int argc, char *argv[])
 	snprintf(current_conf_app, sizeof(current_conf_app), "%soswan.cfg%s", PATH_DIRECTORY, EXTENSION);
 #endif
 	
+	system_initcfg();
 	system_loadcfg(current_conf_app);
 
     /*	load rom file via args if a rom path is supplied	*/
@@ -164,12 +165,9 @@ int main(int argc, char *argv[])
 				SDL_PauseAudio(1);
 				#endif
 				screen_showtopmenu();
-				if (cartridge_IsLoaded()) 
-				{
-					#ifdef SOUND_ON
-					SDL_PauseAudio(0);
-					#endif
-				}
+				#ifdef SOUND_ON
+				if (cartridge_IsLoaded()) SDL_PauseAudio(0);
+				#endif
 				#ifndef NO_WAIT
 				nextTick = SDL_UXTimerRead() + interval;
 				#endif
@@ -181,6 +179,7 @@ int main(int argc, char *argv[])
 				
 				if (WsCreate(gameName)) 
 				{
+					system_saveloadgamecfg(0);
 					WsInit();
 					m_Flag = GF_GAMERUNNING;
 					#ifdef SOUND_ON

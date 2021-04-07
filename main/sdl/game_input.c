@@ -6,14 +6,6 @@
 
 #include "WSFileio.h"
 
-#ifdef JOYSTICK
-	extern int16_t joystick_axies[4];
-	#define JOYSTICK_UP (joystick_axies[1] < -2048 ? 1 : 0)
-	#define JOYSTICK_RIGHT	(joystick_axies[0] > 2048 ? 1 : 0)
-	#define JOYSTICK_LEFT	(joystick_axies[0] < -2048 ? 1 : 0)
-	#define JOYSTICK_DOWN (joystick_axies[1] > 2048 ? 1 : 0)
-#endif
-
 void exit_button(void)
 {
 	/* SLIDER/SELECT or ESC -> MENU UI */
@@ -48,10 +40,9 @@ int32_t WsInputGetState(int32_t mode)
 	int32_t button = 0;
 	
 	Buttons();
-	button = Fire_buttons();
 
 	/* If Quick Saves are enabled */
-	if (GameConf.reserved3)
+	if (GameConf.quicksave)
 	{
 		/* Save (L button)	*/
 		if (button_state[8]) 
@@ -62,7 +53,7 @@ int32_t WsInputGetState(int32_t mode)
 			#else
 			strcpy(strrchr(szFile, '.'), ".sta");
 			#endif
-			WsSaveState(szFile, GameConf.reserved1);
+			WsSaveState(szFile, GameConf.load_slot);
 		}
 		/* Load (R button)	*/
 		else if (button_state[9]) 
@@ -73,212 +64,79 @@ int32_t WsInputGetState(int32_t mode)
 			#else
 			strcpy(strrchr(szFile, '.'), ".sta");
 			#endif
-			WsLoadState(szFile, GameConf.reserved2);
+			WsLoadState(szFile, GameConf.save_slot);
 		}
 	}
 	
 	switch(GameConf.input_layout)
 	{
-		case 0:
-			/* RIGHT -> X2 */
-			button |= button_state[15] ? (1<<1) : 0; 
-			/* LEFT -> X4 */
-			button |= button_state[14] ? (1<<3) : 0; 
-			/* DOWN -> X3 */
-			button |= button_state[17] ? (1<<2) : 0; 
-			/* UP -> X1	*/
-			button |= button_state[16] ? (1<<0) : 0; 
+		case 0:				// H-Mode
+			//	PAD_RIGHT(1)	-> XR(5)
+			button |= button_state[1] ? (1<<5) : 0; 
+			//	PAD_LEFT(0)	-> XL(7)
+			button |= button_state[0] ? (1<<7) : 0; 
+			//	PAD_DOWN(3)	-> XD(6)
+			button |= button_state[3] ? (1<<6) : 0; 
+			//	PAD_UP(2)	-> XU(4)
+			button |= button_state[2] ? (1<<4) : 0; 
+			//	PAD_R(9)	-> YR(1)
+			button |= button_state[9] ? (1<<1) : 0; 
+			//	PAD_L(8)	-> YL(3)
+			button |= button_state[8] ? (1<<3) : 0; 
+			//	PAD_Y(7)	-> YD(2)
+			button |= button_state[7] ? (1<<2) : 0; 
+			//	PAD_X(6)	-> YU(0)
+			button |= button_state[6] ? (1<<0) : 0; 
 			
-			/* Button A	*/
+			//	PAD_A(4)	-> A(10)
 			button |= button_state[4] ? (1<<10) : 0; 
-			/* Button B	*/
+			//	PAD_B(5)	-> B(11)
 			button |= button_state[5] ? (1<<11) : 0; 
-			
-			/* RIGHT -> X1	*/
-			button |= button_state[1] ? (1<<5) : 0; 	
-			/* LEFT -> X1	*/
-			button |= button_state[0] ? (1<<7) : 0; 	
-			/* DOWN -> X1	*/
-			button |= button_state[3] ? (1<<6) : 0; 	
-			/* UP -> X1		*/
-			button |= button_state[2] ? (1<<4) : 0; 	
 		break;
-		case 1:
-			/* RIGHT -> X2 */
-			button |= button_state[15] ? (1<<5) : 0; 
-			/* LEFT -> X4 */
-			button |= button_state[14] ? (1<<7) : 0; 
-			/* DOWN -> X3 */
-			button |= button_state[17] ? (1<<6) : 0; 
-			/* UP -> X1	*/
-			button |= button_state[16] ? (1<<4) : 0; 
-			
-			/* Button A	*/
-			button |= button_state[4] ? (1<<10) : 0; 
-			/* Button B	*/
-			button |= button_state[5] ? (1<<11) : 0; 
-			
-			/* RIGHT -> X1	*/
-			button |= button_state[1] ? (1<<1) : 0; 
-			/* LEFT -> X1	*/
-			button |= button_state[0] ? (1<<3) : 0; 
-			/* DOWN -> X1	*/
-			button |= button_state[3] ? (1<<2) : 0; 	
-			/* UP -> X1		*/
-			button |= button_state[2] ? (1<<0) : 0; 
+		case 1:				// V-Mode
+			if (GameConf.m_ScreenRatio > 2)	{		// Rotate Scaler
+				//	PAD_UP(2)	-> YR(1)
+				button |= button_state[2] ? (1<<1) : 0; 
+				//	PAD_DOWN(3)	-> YL(3)
+				button |= button_state[3] ? (1<<3) : 0; 
+				//	PAD_RIGHT(1)	-> YD(2)
+				button |= button_state[1] ? (1<<2) : 0; 
+				//	PAD_LEFT(0)	-> YU(0)
+				button |= button_state[0] ? (1<<0) : 0; 
+				//	PAD_X(6)	-> XR(5)
+				button |= button_state[6] ? (1<<5) : 0; 
+				//	PAD_B(5)	-> XL(7)
+				button |= button_state[5] ? (1<<7) : 0; 
+				//	PAD_A(4)	-> XD(6)
+				button |= button_state[4] ? (1<<6) : 0; 
+				//	PAD_Y(7)	-> XU(4)
+				button |= button_state[7] ? (1<<4) : 0; 
+			} else {					// Normal Scaler
+				//	PAD_RIGHT(1)	-> YR(1)
+				button |= button_state[1] ? (1<<1) : 0; 
+				//	PAD_LEFT(0)	-> YL(3)
+				button |= button_state[0] ? (1<<3) : 0; 
+				//	PAD_DOWN(3)	-> YD(2)
+				button |= button_state[3] ? (1<<2) : 0; 
+				//	PAD_UP(2)	-> YU(0)
+				button |= button_state[2] ? (1<<0) : 0; 
+				//	PAD_A(4)	-> XR(5)
+				button |= button_state[4] ? (1<<5) : 0; 
+				//	PAD_Y(7)	-> XL(7)
+				button |= button_state[7] ? (1<<7) : 0; 
+				//	PAD_B(5)	-> XD(6)
+				button |= button_state[5] ? (1<<6) : 0; 
+				//	PAD_X(6)	-> XU(4)
+				button |= button_state[6] ? (1<<4) : 0; 
+			}
+			//	PAD_R(9)	-> A(10)
+			button |= button_state[9] ? (1<<10) : 0; 
+			//	PAD_L(8)	-> B(11)
+			button |= button_state[8] ? (1<<11) : 0; 
 		break;
-		case 2:
-			button |= button_state[15] ? (1<<10) : 0; 
-			button |= button_state[17] ? (1<<11) : 0; 
+	}
+	// START BUTTON				PAD_START
+	button |= button_state[10] ? (1<<9) : 0; 
 
-			button |= button_state[4] ? (1<<5) : 0; 
-			button |= button_state[5] ? (1<<6) : 0; 
-
-			button |= button_state[6] ? (1<<7) : 0; 
-			button |= button_state[7] ? (1<<4) : 0; 
-			
-			/* RIGHT -> X1	*/
-			button |= button_state[1] ? (1<<1) : 0; 
-			/* LEFT -> X1	*/
-			button |= button_state[0] ? (1<<3) : 0; 
-			/* DOWN -> X1	*/
-			button |= button_state[3] ? (1<<2) : 0; 	
-			/* UP -> X1		*/
-			button |= button_state[2] ? (1<<0) : 0; 
-		break;
-		case 3:
-			button |= button_state[15] ? (1<<5) : 0; 
-			button |= button_state[14] ? (1<<7) : 0; 
-			button |= button_state[17] ? (1<<6) : 0; 
-			button |= button_state[16] ? (1<<4) : 0; 
-			
-			button |= button_state[4] ? (1<<1) : 0; 
-			button |= button_state[5] ? (1<<2) : 0; 
-			button |= button_state[6] ? (1<<3) : 0; 
-			button |= button_state[7] ? (1<<0) : 0; 
-			
-			/* RIGHT -> X1	*/
-			button |= button_state[1] ? (1<<10) : 0;  
-			/* DOWN -> X1	*/
-			button |= button_state[3] ? (1<<11) : 0; 	
-		break;
-		case 4:
-			button |= button_state[15] ? (1<<1) : 0; 
-			button |= button_state[14] ? (1<<3) : 0; 
-			button |= button_state[17] ? (1<<2) : 0; 
-			button |= button_state[16] ? (1<<0) : 0; 
-			
-			button |= button_state[4] ? (1<<5) : 0; 
-			button |= button_state[5] ? (1<<6) : 0; 
-			button |= button_state[6] ? (1<<7) : 0; 
-			button |= button_state[7] ? (1<<4) : 0; 
-			
-			/* RIGHT -> X1	*/
-			button |= button_state[1] ? (1<<10) : 0; 
-			/* DOWN -> X1	*/
-			button |= button_state[3] ? (1<<11) : 0; 	
-		break;
-		case 5:
-			/* RIGHT -> X2 */
-			button |= button_state[15] ? (1<<5) : 0; 
-			/* LEFT -> X4 */
-			button |= button_state[14] ? (1<<7) : 0; 
-			/* DOWN -> X3 */
-			button |= button_state[17] ? (1<<6) : 0; 
-			/* UP -> X1	*/
-			button |= button_state[16] ? (1<<4) : 0; 
-			
-			/* Button A	*/
-			button |= button_state[4] ? (1<<5) : 0; 
-			/* Button B	*/
-			button |= button_state[5] ? (1<<7) : 0; 
-			/* Button X	*/
-			button |= button_state[6] ? (1<<6) : 0; 
-			/* Button Y	*/
-			button |= button_state[7] ? (1<<4) : 0; 
-			
-			/* RIGHT -> X1	*/
-			button |= button_state[2] ? (1<<1) : 0; 
-			/* LEFT -> X1	*/
-			button |= button_state[3] ? (1<<3) : 0; 
-			/* DOWN -> X1	*/
-			button |= button_state[1] ? (1<<2) : 0; 	
-			/* UP -> X1		*/
-			button |= button_state[0] ? (1<<0) : 0; 
-		break;
-	}
-			
-	/* START BUTTON */		
-	button |= button_state[10] ? (1<<9) : 0; 		
-			
-	return button;
-}
-
-int32_t Fire_buttons(void)
-{
-	static uint8_t x_button = 0, y_button = 0;
-	int32_t button = 0;
-	
-	switch (GameConf.input_layout)
-	{
-		case 0:
-		case 1:
-			if (button_state[6]>0) 
-				x_button++;			/* (Rapid Fire A) */
-			else
-				x_button = 0;
-				
-			if (button_state[7]>0) 
-				y_button++;			/* (Rapid Fire B) */
-			else
-				y_button = 0;
-		break;
-		case 2:
-			if (button_state[14]>0) 
-				x_button++;			/* (Rapid Fire A) */
-			else
-				x_button = 0;
-				
-			if (button_state[16]>0) 
-				y_button++;			/* (Rapid Fire B) */
-			else
-				y_button = 0;
-		break;
-		case 3:
-		case 4:
-			#ifdef JOYSTICK
-				if (JOYSTICK_LEFT) 
-					x_button++;   	/* (Rapid Fire A) */
-				else
-					x_button = 0;	
-						
-				if (JOYSTICK_UP) 
-					y_button++;		/* (Rapid Fire B) */
-				else
-					y_button = 0;
-			#endif
-		break;
-	}
-	
-	if (x_button == 1)
-	{
-		button |= (1<<11);
-	}
-	else if (x_button>1)
-	{
-		button |= (0<<11);
-		x_button = 0;
-	}
-	
-	if (y_button == 1)
-	{
-		button |= (1<<10);
-	}
-	else if (y_button>1)
-	{
-		button |= (0<<10);
-		y_button = 0;
-	}
-		
 	return button;
 }

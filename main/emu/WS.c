@@ -38,7 +38,7 @@ static uint16_t VTimer;
 static uint8_t RtcCount;
 
 #ifdef FRAMESKIP
-int32_t FrameSkip = 0;
+int32_t FrameSkip = 4;
 static int32_t SkipCnt = 0;
 static const int32_t TblSkip[5][5] = {
     {1,1,1,1,1},
@@ -47,6 +47,12 @@ static const int32_t TblSkip[5][5] = {
     {0,0,1,0,1},
     {0,0,0,0,1},
 };
+#endif
+
+#ifdef AUDIOFRAMESKIP
+static int32_t SkipCnt = 0;
+#define UNDERRUN_THRESHOLD	0.5
+#define MAX_SKIP_COUNT		5
 #endif
 
 #ifdef SOUND_EMULATION
@@ -804,10 +810,8 @@ int32_t Interrupt(void)
             }
             break;
 #ifdef SOUND_ON
-        case 2:
-            /* Hblank毎に1サンプルセットすることで12KHzのwaveデータが出来る */
-            apuWaveSet();
-			*(uint16_t*)(IO + NCSR) = apuShiftReg();
+        case 1:
+            apuWaveSet0();		// 24kHz拡張用: この時点での周波数・音量を保存
             break;
 #endif
         case 4:
@@ -827,12 +831,16 @@ int32_t Interrupt(void)
 				if(IO[RSTRL] == 0)
 				{
 					SkipCnt--;
-                    if(SkipCnt < 0)
+					if(SkipCnt < 0)
 					{
 						SkipCnt = 4;
 					}
 				}
 				if(TblSkip[FrameSkip][SkipCnt])
+				#else
+				#ifdef AUDIOFRAMESKIP
+				if (SkipCnt == 0)
+				#endif
 				#endif
 				{
 					if(IO[RSTRL] < 144)
@@ -844,8 +852,24 @@ int32_t Interrupt(void)
 						graphics_paint();
 					}
 				}
+				#ifdef AUDIOFRAMESKIP
+					if(IO[RSTRL] == 144) {
+						if (apuBufLen() < (SND_RNGSIZE * UNDERRUN_THRESHOLD))
+						{
+							SkipCnt++;
+							if (SkipCnt > MAX_SKIP_COUNT) SkipCnt = 0;
+						} else	SkipCnt = 0;
+					}
+				#endif
             }
             break;
+#ifdef SOUND_ON
+        case 5:
+            /* Hblank毎に1サンプルセットすることで12KHzのwaveデータが出来る */
+            apuWaveSet();
+			*(uint16_t*)(IO + NCSR) = apuShiftReg();
+            break;
+#endif
         case 6:
             if((IO[TIMCTL] & 0x01) && HTimer)
             {
@@ -914,7 +938,8 @@ int32_t WsRun(void)
     int32_t i, iack, inum;
     uint16_t cycle;
     
-    for(i = 0; i < 1706; i++)
+//    for(i = 0; i < 1706; i++)
+    for(i = 0; i < 159*8; i++) // 1/75s
     {
         cycle = nec_execute(period);
         period += IPeriod - cycle;

@@ -53,6 +53,15 @@
 	#endif
 #endif
 
+#ifdef TRIMUI
+	#ifndef HOME_SUPPORT
+	#define HOME_SUPPORT
+	#endif
+	#ifndef NO_WAIT
+	#define NO_WAIT
+	#endif
+#endif
+
 #ifdef DINGOO
 	#ifndef NOWAIT
 	#define NOWAIT
@@ -99,6 +108,11 @@
 #elif defined(BITTBOY)
 	#define BITDEPTH_OSWAN 16
 	#define FLAG_VIDEO SDL_HWSURFACE
+	#define REAL_SCREEN_WIDTH 320
+	#define REAL_SCREEN_HEIGHT 240
+#elif defined(TRIMUI)
+	#define BITDEPTH_OSWAN 16
+	#define FLAG_VIDEO SDL_SWSURFACE
 	#define REAL_SCREEN_WIDTH 320
 	#define REAL_SCREEN_HEIGHT 240
 #elif defined(RS97)
@@ -201,6 +215,33 @@
 	
 	#define PAD_QUIT		SDLK_ESCAPE
 	
+#elif defined(TRIMUI)
+
+	#define PAD_XUP		SDLK_UP
+	#define PAD_XLEFT	SDLK_LEFT
+	#define PAD_XRIGHT	SDLK_RIGHT
+	#define PAD_XDOWN	SDLK_DOWN
+
+	#define PAD_UP		SDLK_UP
+	#define PAD_LEFT	SDLK_LEFT
+	#define PAD_RIGHT	SDLK_RIGHT
+	#define PAD_DOWN	SDLK_DOWN
+	
+	#define PAD_A		SDLK_SPACE
+	#define PAD_B		SDLK_LCTRL
+	
+	#define PAD_X		SDLK_LSHIFT
+	#define PAD_Y		SDLK_LALT
+	
+	#define PAD_L		SDLK_TAB
+	#define PAD_R		SDLK_BACKSPACE
+	
+	#define PAD_START		SDLK_RETURN
+	#define PAD_SELECT		SDLK_RCTRL
+	
+	#define PAD_SLIDER		0
+	
+	#define PAD_QUIT		SDLK_ESCAPE
 	
 #elif defined(GECKO)
 
@@ -298,16 +339,16 @@
 #define cartridge_IsLoaded() (strlen(gameName) != 0)
 
 typedef struct {
-	uint16_t sndLevel;
-	uint16_t m_ScreenRatio; 	/* 0 = 1x size, 1 = full screen, 2 = Keep Aspect */
-	uint16_t OD_Joy[12]; 		/* each key mapping	*/
-	uint16_t m_DisplayFPS;
+	uint16_t unused1;		// UNUSED
+	uint16_t m_ScreenRatio; 	// 0 = Native, 1 = Fullscreen, 2 = Aspect, 3 = Rotate, 4 = RotateWide
+	uint16_t unused2[12]; 		// UNUSED
+	uint16_t m_DisplayFPS;		// 0 = Off, 1 = On
 	int8_t current_dir_rom[MAX__PATH];
-	uint16_t input_layout;
-	uint16_t reserved1;
-	uint16_t reserved2;
-	uint16_t reserved3;
-	uint16_t reserved4;
+	uint16_t input_layout;		// 0 = H-Mode, 1 = V-Mode
+	uint16_t load_slot;		// 0 ~ 8 (1 ~ 9)
+	uint16_t save_slot;		// 0 ~ 8 (1 ~ 9)
+	uint16_t quicksave;		// 0 = Off, 1 = On
+	uint16_t unused3;		// UNUSED
 } gamecfg;
 
 extern SDL_Surface* actualScreen;	/* Main program screen */
@@ -325,8 +366,10 @@ extern uint32_t m_Flag;
 extern int8_t gameName[512];
 extern int8_t current_conf_app[MAX__PATH];
 
+extern void system_initcfg(void);
 extern void system_loadcfg(const int8_t *cfg_name);
 extern void system_savecfg(const int8_t *cfg_name);
+extern void system_saveloadgamecfg(const int32_t saveload);
 
 extern void mainemuinit();
 

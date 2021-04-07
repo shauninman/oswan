@@ -61,7 +61,7 @@ void RefreshLine(const uint16_t Line)
     int32_t PalIndex;             
     int16_t i, j, k, index[8];
     uint16_t BaseCol; 
-    pSBuf = FrameBuffer + Line * 320;
+    pSBuf = FrameBuffer + Line * 320 + 8;	// +8 offset
     pSWrBuf = pSBuf;
 
     if(IO[LCDSLP] & 0x01)

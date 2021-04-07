@@ -6,16 +6,14 @@ MENUITEM MainMenuItems[] = {
 #endif
 	{"Continue", NULL, 0, NULL, &menuContinue},
 	{"Reset", NULL, 0, NULL, &menuReset},
-	{"Load State: ", (int16_t *) &GameConf.reserved1,  8, (int8_t *) &mnuSaves, &menuLoadState},
-	{"Save State: ", (int16_t *) &GameConf.reserved2,  8, (char *) &mnuSaves, &menuSaveState},
+	{"Load State: ", (int16_t *) &GameConf.load_slot,  8, (int8_t *) &mnuSaves, &menuLoadState},
+	{"Save State: ", (int16_t *) &GameConf.save_slot,  8, (char *) &mnuSaves, &menuSaveState},
 	{"Show FPS: ", (int16_t *) &GameConf.m_DisplayFPS, 1, (int8_t *) &mnuYesNo, NULL},
-	
-	{"Quick Saves: ", (int16_t *) &GameConf.reserved3, 1, (int8_t *) &mnuYesNo, NULL},
-
-	{"", (int16_t *) &GameConf.input_layout, 		   5, (int8_t *) &mnuABXY, NULL},
+	{"Quick Saves: ", (int16_t *) &GameConf.quicksave, 1, (int8_t *) &mnuYesNo, NULL},
+	{"Input Map: ", (int16_t *) &GameConf.input_layout, 1, (int8_t *) &mnuABXY, NULL},
 
 #if !defined(NATIVE_RESOLUTION)
-	{"Ratio: ", (int16_t *) &GameConf.m_ScreenRatio, 2, (int8_t *) &mnuRatio, NULL},
+	{"Scale: ", (int16_t *) &GameConf.m_ScreenRatio, 4, (int8_t *) &mnuRatio, NULL},
 #endif
 
 #if !defined(NOSCREENSHOTS)

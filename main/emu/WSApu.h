@@ -25,7 +25,7 @@ extern SWEEP Swp;
 extern NOISE Noise;
 
 extern int8_t VoiceOn;
-extern int16_t Sound[7];
+//extern int16_t Sound[7];
 
 int32_t apuBufLen(void);
 void apuWaveVolume(int32_t);
@@ -39,7 +39,11 @@ void apuSetPData(int32_t, uint8_t);
 uint8_t apuVoice(void);
 void apuSweep(void);
 uint16_t apuShiftReg(void);
+void apuWaveSet0(void);
 void apuWaveSet(void);
 void apuStartupSound(void);
+
+#define SND_BNKSIZE 512
+#define SND_RNGSIZE (8 * SND_BNKSIZE)
 
 #endif

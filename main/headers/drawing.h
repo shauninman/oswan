@@ -6,6 +6,7 @@ void Set_resolution(uint16_t w, uint16_t h);
 void SetVideo(uint8_t mode);
 void Set_DrawRegion(void);
 void take_screenshot(void);
+void upscale_224x144_to_320xXXX(uint16_t *dst, uint16_t *src, uint32_t height);
 
 extern uint8_t FPS;
 extern uint8_t HVMode;

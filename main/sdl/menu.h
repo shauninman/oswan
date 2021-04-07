@@ -31,11 +31,10 @@ uint8_t ifactive(void);
 void menuSaveBmp(void);
 #endif
 
-int8_t mnuABXY[6][16] = {"Normal", "Swap Dpad-Stick", "Swap DPAD-ABXY", "Swap ABXY-Stick", "Swap ALL", "Judgement"};
+int8_t mnuABXY[2][16] = {"H-Mode", "V-Mode"};
 int8_t mnuYesNo[2][16] = {"No", "Yes"};
 int8_t mnuSaves[10][16] = { "1","2","3","4","5","6","7","8","9"};
-int8_t mnuRatio[3][16] = { "1x size","Full screen", "Keep Aspect"};
-
+int8_t mnuRatio[5][16] = { "Native","Fullscreen", "Aspect","Rotate","RotateWide"};
 
 #ifdef _TINSPIRE
 const int8_t *file_ext[] = { 
