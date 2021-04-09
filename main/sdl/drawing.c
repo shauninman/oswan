@@ -86,7 +86,7 @@ void Set_DrawRegion(void)
 	SDL_FillRect(actualScreen, NULL, 0);
 
 	switch (GameConf.m_ScreenRatio) {
-		case 0:		// Native
+		case SCREEN_RATIO_NATIVE:		// Native
 			screen_to_draw_region.w	= 224;
 			screen_to_draw_region.h	= 144;
 #ifdef NATIVE_RESOLUTION
@@ -97,29 +97,35 @@ void Set_DrawRegion(void)
 			screen_to_draw_region.offset_y = ((actualScreen->h - SYSVID_HEIGHT)/2); 
 #endif
 			break;
-		case 1:		// Fullscreen
+		case SCREEN_RATIO_FULLSCREEN:		// Fullscreen
 			screen_to_draw_region.w	= 320;
 			screen_to_draw_region.h	= 240;
 			screen_to_draw_region.offset_x = 0;
 			screen_to_draw_region.offset_y = 0; 
 			break;
-		case 2:		// Aspect
+		case SCREEN_RATIO_ASPECT:		// Aspect
 			screen_to_draw_region.w	= 320;
 			screen_to_draw_region.h	= 204;
 			screen_to_draw_region.offset_x = 0;
 			screen_to_draw_region.offset_y = 18; 
 			break;
-		case 3:		// Rotate
+		case SCREEN_RATIO_ROTATE:		// Rotate
 			screen_to_draw_region.w	= 144;
 			screen_to_draw_region.h	= 224;
 			screen_to_draw_region.offset_x = 88;
 			screen_to_draw_region.offset_y = 8;
 			break;
-		case 4:		// RotateWide
+		case SCREEN_RATIO_ROTATE_WIDE:		// RotateWide
 			screen_to_draw_region.w	= 288;
 			screen_to_draw_region.h	= 224;
 			screen_to_draw_region.offset_x = 16;
 			screen_to_draw_region.offset_y = 8;
+			break;
+		case SCREEN_RATIO_15X_SHARP:		
+			screen_to_draw_region.w	= 320;
+			screen_to_draw_region.h	= 216;
+			screen_to_draw_region.offset_x = 0;
+			screen_to_draw_region.offset_y = 12;
 			break;
 	}
 }
@@ -165,16 +171,17 @@ void screen_draw(void)
 	SDL_LockSurface(actualScreen);
 
 	switch (GameConf.m_ScreenRatio) {
-		case 0:		// Native	224x144
+		case SCREEN_RATIO_NATIVE:		// Native	224x144
 			for(y = 0; y < 144; y++, src += 320, dst += 320) memmove(dst, src, 224*2);
+			upscale_15x_sharp(actualScreen->pixels, src);
 			break;
-		case 1:		// Fullscreen	224x144 > 320x240	7x3 > 10x5
+		case SCREEN_RATIO_FULLSCREEN:		// Fullscreen	224x144 > 320x240	7x3 > 10x5
 			upscale_224x144_to_320xXXX(dst, src, 240);
 			break;
-		case 2:		// Aspect	224x144 > 320x204
+		case SCREEN_RATIO_ASPECT:		// Aspect	224x144 > 320x204
 			upscale_224x144_to_320xXXX(dst, src, 204);
 			break;
-		case 3:		// Rotate	224x144 > 144x224
+		case SCREEN_RATIO_ROTATE:		// Rotate	224x144 > 144x224
 			src += 223;
 			for( y = 0; y < 224; y++) {
 				for ( x = 0; x < 144; x++) {
@@ -185,7 +192,7 @@ void screen_draw(void)
 				src -= (320 * 144) + 1;
 			}
 			break;
-		case 4:		// RotateWide	224x144 > 288x224
+		case SCREEN_RATIO_ROTATE_WIDE:		// RotateWide	224x144 > 288x224
 			src += 223;
 			for( y = 0; y < 224; y++) {
 				for ( x = 0; x < 144; x++) {
@@ -196,6 +203,9 @@ void screen_draw(void)
 				src -= (320 * 144) + 1;
 			}
 			break;
+		case SCREEN_RATIO_15X_SHARP: // 1.5x sharp 336x216 (-8,12)
+			upscale_15x_sharp(actualScreen->pixels, src);
+			break;
 	}
 #endif
 
@@ -203,9 +213,9 @@ void screen_draw(void)
 	if (GameConf.m_DisplayFPS) 
 	{
 #ifndef NATIVE_RESOLUTION
-		if (GameConf.m_ScreenRatio != 1)
+		if (GameConf.m_ScreenRatio != SCREEN_RATIO_FULLSCREEN)
 #else
-		if ((GameConf.m_ScreenRatio != 0) && (GameConf.m_ScreenRatio != 1))
+		if ((GameConf.m_ScreenRatio != SCREEN_RATIO_NATIVE) && (GameConf.m_ScreenRatio != SCREEN_RATIO_FULLSCREEN))
 #endif
 		{
 			SDL_Rect rect;
@@ -297,5 +307,70 @@ void upscale_224x144_to_320xXXX(uint16_t *dst, uint16_t *src, uint32_t height)
 	    src -= 224;
 	}
     }
+}
+
+void upscale_15x_sharp(uint16_t *dst_px, uint16_t *src_px) {
+	// src might be 320px...
+	uint16_t *next_row, *prev_row;
+	
+	dst_px += 320 * 12;
+	
+	unsigned int x,y,ox=0,oy=0,p,c,n,a,b,pa,pb,na,nb,skipped=0,s;
+	for (y=0; y<144; y++) {
+		s = 0;
+		for (x=0; x<224; x++) {
+			c = *src_px;
+			
+			if (s>=8 && s<328) {
+				*dst_px = c;
+				dst_px += 1;
+			}
+			s += 1;
+			
+			ox = !ox;
+			if (ox) {
+				n = *(src_px+1);
+				if (s>=8 && s<328) {
+					if (c>n) *dst_px = n; // always pick the darker
+					else *dst_px = c;
+					// *dst_px = 0xf800;
+					dst_px += 1;
+				}
+				s += 1;
+			}
+			src_px += 1;
+		}
+		src_px += 96;
+		
+		if (skipped) {
+			// NOTE: we hit the oy condition on the iteration before this
+			// so we've just drawn the line after the one we skipped
+			// so let's jump back to the beginning of the skipped line
+			dst_px -= 320 * 2;
+			for (x=0;x<320;x++) {
+				n = *next_row;
+				c = *prev_row;
+				if (c>n) *dst_px = n; // always pick the darker
+				else *dst_px = c;
+				// *dst_px = 0xf800;
+				prev_row += 1;
+				dst_px += 1;
+				next_row += 1;
+			}
+			dst_px += 320; // skip to the line after the one we had already drawn
+			skipped = 0;
+		}
+		
+		oy = !oy;
+		if (oy) {
+			// NOTE: we hit this before skipped condition
+			// we are going to skip this interpolated line
+			// and revisit it once we've drawn the next line
+			skipped = 1;
+			prev_row = dst_px - 320;
+			dst_px += 320;
+			next_row = dst_px;
+		}
+	}
 }
 #endif

@@ -34,7 +34,7 @@ void menuSaveBmp(void);
 int8_t mnuABXY[2][16] = {"H-Mode", "V-Mode"};
 int8_t mnuYesNo[2][16] = {"No", "Yes"};
 int8_t mnuSaves[10][16] = { "1","2","3","4","5","6","7","8","9"};
-int8_t mnuRatio[5][16] = { "Native","Fullscreen", "Aspect","Rotate","RotateWide"};
+int8_t mnuRatio[6][16] = { "Native","Fullscreen", "Aspect", "1.5x Sharp", "Rotate","RotateWide"};
 
 #ifdef _TINSPIRE
 const int8_t *file_ext[] = { 

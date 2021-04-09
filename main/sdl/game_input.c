@@ -15,7 +15,7 @@ void exit_button(void)
 		take_screenshot();
 		/* HACK - FIX ME*/
 #ifdef GCW
-		if (GameConf.m_ScreenRatio == 2) SetVideo(0);
+		if (GameConf.m_ScreenRatio == SCREEN_RATIO_FULLSCREEN) SetVideo(0);
 #endif
 	}
 }
@@ -94,7 +94,7 @@ int32_t WsInputGetState(int32_t mode)
 			button |= button_state[5] ? (1<<11) : 0; 
 		break;
 		case 1:				// V-Mode
-			if (GameConf.m_ScreenRatio > 2)	{		// Rotate Scaler
+			if (GameConf.m_ScreenRatio == SCREEN_RATIO_ROTATE || GameConf.m_ScreenRatio == SCREEN_RATIO_ROTATE_WIDE)	{
 				//	PAD_UP(2)	-> YR(1)
 				button |= button_state[2] ? (1<<1) : 0; 
 				//	PAD_DOWN(3)	-> YL(3)

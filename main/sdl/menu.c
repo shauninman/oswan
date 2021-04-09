@@ -711,7 +711,7 @@ void system_initcfg(void)
 		GameConf.load_slot = 0;
 		GameConf.save_slot = 0;
 		GameConf.quicksave = 0;
-		GameConf.m_ScreenRatio=1; 	/* Sets the Ratio to fullscren by default	*/
+		GameConf.m_ScreenRatio=SCREEN_RATIO_15X_SHARP;
 		GameConf.m_DisplayFPS=0; 	/* 0 = no, 1 = Yes	*/
 		getcwd(GameConf.current_dir_rom, MAX__PATH);
 }

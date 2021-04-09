@@ -13,7 +13,7 @@ MENUITEM MainMenuItems[] = {
 	{"Input Map: ", (int16_t *) &GameConf.input_layout, 1, (int8_t *) &mnuABXY, NULL},
 
 #if !defined(NATIVE_RESOLUTION)
-	{"Scale: ", (int16_t *) &GameConf.m_ScreenRatio, 4, (int8_t *) &mnuRatio, NULL},
+	{"Scale: ", (int16_t *) &GameConf.m_ScreenRatio, 5, (int8_t *) &mnuRatio, NULL},
 #endif
 
 #if !defined(NOSCREENSHOTS)

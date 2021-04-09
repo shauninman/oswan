@@ -16,6 +16,7 @@ CFLAGS		+= -flto -fomit-frame-pointer -fno-builtin -fno-strict-aliasing
 CFLAGS		+= -Wno-write-strings -Wno-sign-compare
 CFLAGS		+= $(SDL_CFLAGS) 
 CFLAGS		+= -I./main/emu -I./main/sdl -I./main/headers ${DEFINES}
+CFLAGS		+= -DNOROMLOADER
 DEFINES 	= -DTRIMUI
 LDFLAGS 	= -no-pie -lSDL -lasound
 LDFLAGS		+= -Wl,--as-needed -Wl,--gc-sections -flto -s

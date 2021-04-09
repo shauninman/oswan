@@ -338,9 +338,18 @@
 
 #define cartridge_IsLoaded() (strlen(gameName) != 0)
 
+enum {
+	SCREEN_RATIO_NATIVE,
+	SCREEN_RATIO_FULLSCREEN,
+	SCREEN_RATIO_ASPECT,
+	SCREEN_RATIO_15X_SHARP,
+	SCREEN_RATIO_ROTATE,
+	SCREEN_RATIO_ROTATE_WIDE,
+};
+
 typedef struct {
 	uint16_t unused1;		// UNUSED
-	uint16_t m_ScreenRatio; 	// 0 = Native, 1 = Fullscreen, 2 = Aspect, 3 = Rotate, 4 = RotateWide
+	uint16_t m_ScreenRatio; 	// see enum
 	uint16_t unused2[12]; 		// UNUSED
 	uint16_t m_DisplayFPS;		// 0 = Off, 1 = On
 	int8_t current_dir_rom[MAX__PATH];
