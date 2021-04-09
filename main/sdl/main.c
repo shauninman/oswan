@@ -16,6 +16,12 @@ KOS_INIT_FLAGS(INIT_DEFAULT | INIT_MALLOCSTATS);
 #include "drawing.h"
 #include "game_input.h"
 
+#include <dlfcn.h>
+#include <mmenu.h>
+static void* mmenu = NULL;
+char rom_path[512];
+char save_path[512];
+
 #ifndef NO_WAIT
 void msleep(uint8_t milisec);
 #endif
@@ -110,6 +116,8 @@ int main(int argc, char *argv[])
 
 	m_Flag = GF_MAINUI;
 	
+	mmenu = dlopen("libmmenu.so", RTLD_LAZY);
+	
 	/* Init graphics & sound */
 	initSDL();
 	
@@ -154,6 +162,14 @@ int main(int argc, char *argv[])
 		flip_screen(actualScreen);
 		snprintf(gameName, sizeof(gameName) ,"%s", argv[1]);
 		m_Flag = GF_GAMEINIT;
+		
+		strcpy(rom_path, gameName);
+		
+		// based on code from menu.c:menuSaveState() and WSFileio.c:WsSaveState()
+		int8_t savename[512];
+		strcpy(savename, gameName);
+		strcpy(strrchr(savename, '.'), ".sta");
+		snprintf(save_path, 512, "%s%s%s.%%i.sta", PATH_DIRECTORY, SAVE_DIRECTORY, strrchr(savename,'/')+1);
 	}
 
 	while (m_Flag != GF_GAMEQUIT) 
@@ -164,7 +180,46 @@ int main(int argc, char *argv[])
 				#ifdef SOUND_ON
 				SDL_PauseAudio(1);
 				#endif
-				screen_showtopmenu();
+				if (mmenu) {
+					// prevents opening MinUI menu twice
+					for (int i=0; i<18; i++) {
+						button_state[i] = 0;
+					}
+					
+					ShowMenu_t ShowMenu = (ShowMenu_t)dlsym(mmenu, "ShowMenu");
+					MenuReturnStatus status = ShowMenu(rom_path, save_path, actualScreen, kMenuEventKeyDown);
+					
+					if (status==kStatusExitGame) {
+						menuQuit();
+					}
+					else if (status==kStatusOpenMenu) {
+						// prevents emulator menu from being dismissed immediately
+						Reset_Controls(); 
+						screen_showtopmenu();
+					}
+					else if (status>=kStatusLoadSlot) {
+						int slot = status - kStatusLoadSlot;
+						GameConf.save_slot = slot;
+						GameConf.load_slot = slot;
+						menuLoadState();
+					}
+					else if (status>=kStatusSaveSlot) {
+						int slot = status - kStatusSaveSlot;
+						GameConf.save_slot = slot;
+						GameConf.load_slot = slot;	
+						menuSaveState();
+					}
+					
+					if (status!=kStatusExitGame && status!=kStatusOpenMenu) {
+						menuContinue();
+					}
+					
+					SDL_FillRect(actualScreen, NULL, 0);
+					SDL_Flip(actualScreen);
+				}
+				else {
+					screen_showtopmenu();
+				}
 				#ifdef SOUND_ON
 				if (cartridge_IsLoaded()) SDL_PauseAudio(0);
 				#endif

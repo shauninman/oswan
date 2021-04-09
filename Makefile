@@ -19,7 +19,9 @@ CFLAGS		+= -I./main/emu -I./main/sdl -I./main/headers ${DEFINES}
 CFLAGS		+= -DNOROMLOADER
 DEFINES 	= -DTRIMUI
 LDFLAGS 	= -no-pie -lSDL -lasound
-LDFLAGS		+= -Wl,--as-needed -Wl,--gc-sections -flto -s
+# LDFLAGS		+= -Wl,--as-needed
+LDFLAGS		+= -Wl,--gc-sections -flto -s
+LDFLAGS		+= -lSDL_image -lSDL_ttf -ldl
 
 ifeq ($(PROFILE), YES)
 OUT	 		= oswan_pm

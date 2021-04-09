@@ -15,6 +15,7 @@ typedef struct {
 } MENU;
 
 
+void Reset_Controls(void);
 void clear_screen_menu(void);
 void draw_bluerect_menu(uint8_t i);
 void draw_bluerect_file(uint8_t i);

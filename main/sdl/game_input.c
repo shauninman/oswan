@@ -8,8 +8,8 @@
 
 void exit_button(void)
 {
-	/* SLIDER/SELECT or ESC -> MENU UI */
-	if (button_state[12] || button_state[13] || (button_state[10] && button_state[11]))
+	/* ESC -> MENU UI */
+	if (button_state[12])
 	{
 		m_Flag = GF_MAINUI;
 		take_screenshot();
