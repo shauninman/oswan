@@ -45,7 +45,6 @@ void screen_showitem(const int16_t x, const int16_t y, MENUITEM *m, int32_t fg_c
 
 void screen_showmenu(MENU *menu) 
 {
-	puts("\n\t\t\tscreen_showmenu\n");
 	uint8_t i;
 	MENUITEM *mi = menu->m;
 	int8_t szVal[100];
@@ -90,7 +89,6 @@ uint8_t ifactive(void)
 /* Main function that runs all the stuff	*/
 void screen_showmainmenu(MENU *menu) 
 {
-	puts("\n\t\tscreen_showmainmenu\n");
 	MENUITEM *mi;
 
 	/* Show Menu on-screen (Load ROM, Reset...)	*/
@@ -187,8 +185,6 @@ void screen_showmainmenu(MENU *menu)
 /* Menu function that runs main top menu	*/
 void screen_showtopmenu(void) 
 {
-	puts("\n\tscreen_showtopmenu\n");
-	
 #ifdef NATIVE_RESOLUTION
 	SetVideo(0);
 #endif
