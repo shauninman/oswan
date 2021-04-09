@@ -299,8 +299,8 @@ void upscale_224x144_to_320xXXX(uint16_t *dst, uint16_t *src, uint32_t height)
         Eh += 144;
         if(Eh >= height) {
             Eh -= height;
-	    src += (320 - 224);
             vf = 0;
+	    	src += (320 - 224);
         }
         else {
             vf = 1;

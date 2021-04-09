@@ -86,9 +86,9 @@ void initSDL(void)
 	
 	/*	Set up SDL sound */
 	fmt.freq = 24000;		// 24kHz
-	fmt.samples = 512;		// ÇøÇ¢Ç≥Çﬂ
+	fmt.samples = 512;		// Shorter to prevent sound delay
 	fmt.format = AUDIO_S16SYS;
-	fmt.channels = 1;		// ÉÇÉmÉâÉã
+	fmt.channels = 1;		// Mono
 	fmt.callback = mixaudioCallback;
 	fmt.userdata = NULL;
 

@@ -53,7 +53,7 @@ int32_t WsInputGetState(int32_t mode)
 			#else
 			strcpy(strrchr(szFile, '.'), ".sta");
 			#endif
-			WsSaveState(szFile, GameConf.load_slot);
+			WsSaveState(szFile, GameConf.save_slot);
 		}
 		/* Load (R button)	*/
 		else if (button_state[9]) 
@@ -64,7 +64,7 @@ int32_t WsInputGetState(int32_t mode)
 			#else
 			strcpy(strrchr(szFile, '.'), ".sta");
 			#endif
-			WsLoadState(szFile, GameConf.save_slot);
+			WsLoadState(szFile, GameConf.load_slot);
 		}
 	}
 	
