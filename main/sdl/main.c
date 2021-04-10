@@ -182,9 +182,7 @@ int main(int argc, char *argv[])
 				#endif
 				if (mmenu) {
 					// prevents opening MinUI menu twice
-					for (int i=0; i<18; i++) {
-						button_state[i] = 0;
-					}
+					button_state[12] = 0;
 					
 					ShowMenu_t ShowMenu = (ShowMenu_t)dlsym(mmenu, "ShowMenu");
 					MenuReturnStatus status = ShowMenu(rom_path, save_path, actualScreen, kMenuEventKeyDown);
