@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 #include <SDL/SDL.h>
@@ -261,8 +262,10 @@ void apuWaveSet0(void)		// 12 → 24kHzへの拡張・周波数と音量だけ�
 	for (channel = 0; channel < 4; channel++)
 	{
 		freqpush[channel] = Ch[channel].freq;
-		volLpush[channel] = Ch[channel].volL;
-		volRpush[channel] = Ch[channel].volR;
+		if (Ch[channel].on) {
+			volLpush[channel] = Ch[channel].volL;
+			volRpush[channel] = Ch[channel].volR;
+		} else	volLpush[channel] = volRpush[channel] = 0;	// chがoffなら音量0
 	}
 }
 
@@ -272,11 +275,12 @@ void apuWaveSet(void)
 //	・マスク機能はないので sound[x] を削除
 //	・ステレオからモノラルに変更
 //	・合成は12 x 2 = 24kHz (PCM/ノイズは12kHzのまま)
+//	・point[channel] の処理を見直して音痴を改善
     static uint32_t point[4] = {1, 1, 1, 1};
-    static uint32_t preindex[4] = {0, 0, 0, 0};
     int32_t Vol1 = 0, Vol2 = 0;
     int32_t value1, value2, vVol;
     uint32_t index1, index2, channel;
+    div_t divresult;
 
 #ifdef AUDIOFRAMESKIP
     while (apuBufLen() >= (SND_RNGSIZE - 16)) SDL_Delay(1);	// buffer overrun wait
@@ -288,32 +292,32 @@ void apuWaveSet(void)
     
     for (channel = 0; channel < 4; channel++)
     {
-        if (Ch[channel].on)
+        if ((Ch[channel].on) && ((Ch[channel].volL | Ch[channel].volR) != 0))
         {
             if (channel == 1 && VoiceOn)	continue;	// PCM合成中はch1を再生しない
             else if (channel == 3 && Noise.on)	// ch3がノイズの場合
             {
-		index1 = ((3072000 / BPSWAV) * point[3] / (2048 - Ch[3].freq)) % BUFSIZEN;
+		divresult = div( point[3]<<8 , 2048 - Ch[3].freq );
+		index1 = divresult.quot % BUFSIZEN;
 		value1 = PDataN[Noise.pattern][index1] - 8;
 		value2 = value1;		// ノイズは12kHzで十分
-                if ((index1 == 0) && preindex[3])	point[3] = 0;
-		preindex[3] = index1; point[3]++;
+		if ((index1|divresult.rem) == 0) point[3] = 0;
+		point[3]++;
             }
             else
             {	// 3072000 / BPSWAV(12000) = 256
-		index1 = ( (point[channel]<<9) - 256) / (2048 - freqpush[channel]);	// 中間処理
-		index2 = ( (point[channel]<<9)      ) / (2048 - Ch[channel].freq );
-		index1 = ((index1 >> 1) + (index1 & 1)) & 0x1f;	// 四捨五入
-		index2 = ((index2 >> 1) + (index2 & 1)) & 0x1f;	// (あんまり変わらないかも、要検討)
-                if ((index2 == 0) && preindex[channel])	point[channel] = 0;
-		preindex[channel] = index2; point[channel]++;
+		index1 = (((point[channel]<<8) - 128) / (2048 - freqpush[channel])) & 0x1f;	// 中間処理
+		divresult = div( point[channel]<<8 , 2048 - Ch[channel].freq );	// 余りも使うのでdiv命令で
+		index2 = divresult.quot & 0x1f;
 		value1 = PData[channel][index1] - 8;
 		value2 = PData[channel][index2] - 8;
+		if ((index2|divresult.rem) == 0) point[channel] = 0;	// 音痴改善
+		point[channel]++;
             }
 		// モノラル化：どちらか音量の大きい方を採用
 		Vol1 += value1 * (volLpush[channel] > volRpush[channel] ? volLpush[channel] : volRpush[channel]);
 		Vol2 += value2 * (Ch[channel].volL > Ch[channel].volR ? Ch[channel].volL : Ch[channel].volR);
-        }
+        } else	point[channel] = 1;	// 無音時は波形メモリポイントをリセット
     }
     vVol = (apuVoice() - 0x80);		// PCM合成 (12kHz)
 

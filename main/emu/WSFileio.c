@@ -490,7 +490,8 @@ int32_t WsLoadState(const int8_t *savename, int32_t num)
 	WriteIO(0xC2, IO[0xC2]);
 	WriteIO(0xC3, IO[0xC3]);
 	WriteIO(0xC0, IO[0xC0]);
-	for (i = 0x80; i <= 0x90; i++)
+//	for (i = 0x80; i <= 0x90; i++)
+	for (i = 0x07; i <= 0xB3; i++)
 	{
 		WriteIO(i, IO[i]);
 	}
