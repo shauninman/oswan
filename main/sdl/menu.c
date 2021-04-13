@@ -65,7 +65,7 @@ void screen_showmenu(MENU *menu)
 			fg_color = COLOR_ACTIVE_ITEM; 
 		else 
 			fg_color = COLOR_INACTIVE_ITEM;
-		screen_showitem((SPRX+10)+72+OFF_X, (44+i*15)+8+OFF_Y, mi, fg_color);
+		screen_showitem((SPRX+10)+72+OFF_X, (37+i*13)+8+OFF_Y, mi, fg_color);
 	}
 	
 	if (cartridge_IsLoaded()) 
@@ -223,10 +223,10 @@ void findNextFilename(const int8_t *szFileFormat, int8_t *szFilename)
 
 void Reset_Controls(void)
 {
-	button_state[4] = -1;
-	button_state[5] = -1;
-	button_time[4] = 0;
-	button_time[5] = 0;
+	button_state[4] = 0;
+	button_state[5] = 0;
+	button_avoid[4] = 1;
+	button_avoid[5] = 1;
 }
 
 /* Reset current game	*/
@@ -240,7 +240,6 @@ void menuReset(void)
 		WsReset();
 		gameMenu=false;
 		m_Flag = GF_GAMERUNNING;
-		Reset_Controls();
 	}
 }
 
@@ -264,7 +263,6 @@ void menuContinue(void)
 		Set_DrawRegion();
 		Reset_Controls();
 		gameMenu=false;
-		Reset_Controls();
 	}
 }
 
@@ -707,12 +705,14 @@ void menuLoadState(void)
 void system_initcfg(void) 
 {
 		// Default Parameters
-		GameConf.input_layout = 0;
+		GameConf.m_Rotate = 2;
+		GameConf.input_layout = 2;
 		GameConf.load_slot = 0;
 		GameConf.save_slot = 0;
 		GameConf.quicksave = 0;
-		GameConf.m_ScreenRatio=SCREEN_RATIO_15X_SHARP;
-		GameConf.m_DisplayFPS=0; 	/* 0 = no, 1 = Yes	*/
+		GameConf.m_ScreenRatioH = 3; // 1.5x sharp
+		GameConf.m_ScreenRatioV = 0; // native
+		GameConf.m_DisplayFPS = 0; 	/* 0 = no, 1 = Yes	*/
 		getcwd(GameConf.current_dir_rom, MAX__PATH);
 }
 

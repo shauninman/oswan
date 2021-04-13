@@ -338,26 +338,18 @@
 
 #define cartridge_IsLoaded() (strlen(gameName) != 0)
 
-enum {
-	SCREEN_RATIO_NATIVE,
-	SCREEN_RATIO_FULLSCREEN,
-	SCREEN_RATIO_ASPECT,
-	SCREEN_RATIO_15X_SHARP,
-	SCREEN_RATIO_ROTATE,
-	SCREEN_RATIO_ROTATE_WIDE,
-};
-
 typedef struct {
-	uint16_t unused1;		// UNUSED
-	uint16_t m_ScreenRatio; 	// see enum
-	uint16_t unused2[12]; 		// UNUSED
+	uint16_t m_Rotate;		// 0 = Off, 1 = On, 2 = Auto
+	uint16_t m_ScreenRatioH;	// 0 = Native, 1 = Fullscreen, 2 = Aspect, 3 = 1.5x Sharp
+	uint16_t m_ScreenRatioV;	// 0 = Rotate, 1 = RotateFull, 2 = RotateWide
+	uint16_t reserved1[11]; 	// UNUSED
 	uint16_t m_DisplayFPS;		// 0 = Off, 1 = On
 	int8_t current_dir_rom[MAX__PATH];
-	uint16_t input_layout;		// 0 = H-Mode, 1 = V-Mode
+	uint16_t input_layout;		// 0 = H-Mode, 1 = V-Mode, 2 = Auto
 	uint16_t load_slot;		// 0 ~ 8 (1 ~ 9)
 	uint16_t save_slot;		// 0 ~ 8 (1 ~ 9)
 	uint16_t quicksave;		// 0 = Off, 1 = On
-	uint16_t unused3;		// UNUSED
+	uint16_t reserved2;		// UNUSED
 } gamecfg;
 
 extern SDL_Surface* actualScreen;	/* Main program screen */
@@ -387,7 +379,7 @@ extern void screen_showtopmenu(void);
 extern void print_string_video(int16_t x, const int16_t y, const int8_t *s);
 
 extern void Buttons(void);
-extern int16_t button_state[18];
-extern uint8_t button_time[18];
+extern uint32_t button_state[18];
+extern uint32_t button_avoid[18];
 
 #endif

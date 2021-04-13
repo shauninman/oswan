@@ -58,9 +58,9 @@ void draw_bluerect_menu(uint8_t i)
 {
 	SDL_Rect position_select;
 	position_select.w  = 320;
-	position_select.h  = 12;
+	position_select.h  = 11;
 	position_select.x  = 0 + OFF_X;
-	position_select.y  = (44+i*15)-2+8 + OFF_Y;
+	position_select.y  = (37+i*13)-2+8 + OFF_Y;
 	SDL_FillRect(actualScreen, &position_select, SDL_MapRGB(actualScreen->format,0,0,255));
 }
 

@@ -2,6 +2,7 @@
 #ifdef SCALING
 #include "gfx/SDL_rotozoom.h"
 #endif
+#include "WS.h"
 
 void Get_resolution(void)
 {
@@ -35,7 +36,7 @@ void Set_resolution(uint16_t w, uint16_t h)
 
 void SetVideo(uint8_t mode)
 {
-#ifdef SCALING	
+#ifdef SCALING
 	int32_t flags = FLAG_VIDEO | SDL_NOFRAME | SDL_FULLSCREEN;
 #else
 	int32_t flags = FLAG_VIDEO;
@@ -75,7 +76,6 @@ void SetVideo(uint8_t mode)
 	#endif
 	
 	#if !defined(NOSCREENSHOTS)
-//		screenshots = SDL_CreateRGBSurface(FLAG_VIDEO, w, h, BITDEPTH_OSWAN, 0,0,0,0);
 		screenshots = SDL_CreateRGBSurface(0, w, h, BITDEPTH_OSWAN, 0,0,0,0);
 	#endif
 }
@@ -85,138 +85,124 @@ void Set_DrawRegion(void)
 	/* Clear screen too to avoid graphical glitches */
 	SDL_FillRect(actualScreen, NULL, 0);
 
-	switch (GameConf.m_ScreenRatio) {
-		case SCREEN_RATIO_NATIVE:		// Native
-			screen_to_draw_region.w	= 224;
-			screen_to_draw_region.h	= 144;
+	if ( (GameConf.m_Rotate == 0) || ((GameConf.m_Rotate == 2)&&(HVMode == 0)) ) {
+		switch (GameConf.m_ScreenRatioH) {
+			case 0:		// Native
+				screen_to_draw_region.w	= 224;
+				screen_to_draw_region.h	= 144;
 #ifdef NATIVE_RESOLUTION
-			screen_to_draw_region.offset_x = 0;
-			screen_to_draw_region.offset_y = 0; 
+				screen_to_draw_region.offset_x = 0;
+				screen_to_draw_region.offset_y = 0; 
 #else
-			screen_to_draw_region.offset_x = ((actualScreen->w - SYSVID_WIDTH)/2);
-			screen_to_draw_region.offset_y = ((actualScreen->h - SYSVID_HEIGHT)/2); 
+				screen_to_draw_region.offset_x = ((actualScreen->w - SYSVID_WIDTH)/2);
+				screen_to_draw_region.offset_y = ((actualScreen->h - SYSVID_HEIGHT)/2); 
 #endif
-			break;
-		case SCREEN_RATIO_FULLSCREEN:		// Fullscreen
-			screen_to_draw_region.w	= 320;
-			screen_to_draw_region.h	= 240;
-			screen_to_draw_region.offset_x = 0;
-			screen_to_draw_region.offset_y = 0; 
-			break;
-		case SCREEN_RATIO_ASPECT:		// Aspect
-			screen_to_draw_region.w	= 320;
-			screen_to_draw_region.h	= 204;
-			screen_to_draw_region.offset_x = 0;
-			screen_to_draw_region.offset_y = 18; 
-			break;
-		case SCREEN_RATIO_ROTATE:		// Rotate
-			screen_to_draw_region.w	= 144;
-			screen_to_draw_region.h	= 224;
-			screen_to_draw_region.offset_x = 88;
-			screen_to_draw_region.offset_y = 8;
-			break;
-		case SCREEN_RATIO_ROTATE_WIDE:		// RotateWide
-			screen_to_draw_region.w	= 288;
-			screen_to_draw_region.h	= 224;
-			screen_to_draw_region.offset_x = 16;
-			screen_to_draw_region.offset_y = 8;
-			break;
-		case SCREEN_RATIO_15X_SHARP:		
-			screen_to_draw_region.w	= 320;
-			screen_to_draw_region.h	= 216;
-			screen_to_draw_region.offset_x = 0;
-			screen_to_draw_region.offset_y = 12;
-			break;
+				break;
+			case 1:		// Fullscreen
+				screen_to_draw_region.w	= 320;
+				screen_to_draw_region.h	= 240;
+				screen_to_draw_region.offset_x = 0;
+				screen_to_draw_region.offset_y = 0; 
+				break;
+			case 2:		// Aspect
+				screen_to_draw_region.w	= 320;
+				screen_to_draw_region.h	= 204;
+				screen_to_draw_region.offset_x = 0;
+				screen_to_draw_region.offset_y = 18; 
+				break;
+			case 3:		// 1.5x Sharp
+				screen_to_draw_region.w	= 320;
+				screen_to_draw_region.h	= 216;
+				screen_to_draw_region.offset_x = 0;
+				screen_to_draw_region.offset_y = 12;
+				break;
+		}
+	} else {
+		switch (GameConf.m_ScreenRatioV) {
+			case 0:		// Rotate
+				screen_to_draw_region.w	= 144;
+				screen_to_draw_region.h	= 224;
+#ifdef NATIVE_RESOLUTION
+				screen_to_draw_region.offset_x = 0;
+				screen_to_draw_region.offset_y = 0; 
+#else
+				screen_to_draw_region.offset_x = ((actualScreen->w - SYSVID_HEIGHT)/2);
+				screen_to_draw_region.offset_y = ((actualScreen->h - SYSVID_WIDTH)/2); 
+#endif
+				break;
+			case 1:		// RotateFull
+				screen_to_draw_region.w	= 320;
+				screen_to_draw_region.h	= 240;
+				screen_to_draw_region.offset_x = 0;
+				screen_to_draw_region.offset_y = 0;
+				break;
+			case 2:		// RotateWide
+				screen_to_draw_region.w	= 288;
+				screen_to_draw_region.h	= 224;
+				screen_to_draw_region.offset_x = 16;
+				screen_to_draw_region.offset_y = 8;
+				break;
+		}
 	}
 }
 
 void screen_draw(void)
 {
-#ifndef TRIMUI
-	uint16_t *buffer_scr = (uint16_t *) actualScreen->pixels;
-	uint32_t W,H,ix,iy,x,y;
-	
-	SDL_LockSurface(actualScreen);
-	
-	x=screen_to_draw_region.offset_x;
-	y=screen_to_draw_region.offset_y; 
-	W=screen_to_draw_region.w;
-	H=screen_to_draw_region.h;
-	ix=(SYSVID_WIDTH<<16)/W;
-	iy=(SYSVID_HEIGHT<<16)/H;
-	
-	buffer_scr += (y)*320;
-	buffer_scr += (x);
-	do   
-	{
-		uint16_t *buffer_mem=(uint16_t *) (FrameBuffer+8+((y>>16)*SCREEN_WIDTH));	// +8 offset
-		W=screen_to_draw_region.w; x=0;
-		do 
-		{
-			*buffer_scr++=buffer_mem[x>>16];
-#if BITDEPTH_OSWAN == 32
-			*buffer_scr++=buffer_mem[x>>16];
-#endif
-			x+=ix;
-		} while (--W);
-		y+=iy;
-#ifndef NATIVE_RESOLUTION
-		if (screen_to_draw_region.w == 224) buffer_scr += actualScreen->pitch - 320 - SYSVID_WIDTH;
-#endif
-	} while (--H);
-#else				// for TRIMUI scalers
 	uint16_t *src = (uint16_t *) FrameBuffer +8;	// +8 offset
 	uint16_t *dst = (uint16_t *) actualScreen->pixels + screen_to_draw_region.offset_x + screen_to_draw_region.offset_y * 320;
 	uint32_t x , y;
 	SDL_LockSurface(actualScreen);
 
-	switch (GameConf.m_ScreenRatio) {
-		case SCREEN_RATIO_NATIVE:		// Native	224x144
-			for(y = 0; y < 144; y++, src += 320, dst += 320) memmove(dst, src, 224*2);
-			upscale_15x_sharp(actualScreen->pixels, src);
-			break;
-		case SCREEN_RATIO_FULLSCREEN:		// Fullscreen	224x144 > 320x240	7x3 > 10x5
-			upscale_224x144_to_320xXXX(dst, src, 240);
-			break;
-		case SCREEN_RATIO_ASPECT:		// Aspect	224x144 > 320x204
-			upscale_224x144_to_320xXXX(dst, src, 204);
-			break;
-		case SCREEN_RATIO_ROTATE:		// Rotate	224x144 > 144x224
-			src += 223;
-			for( y = 0; y < 224; y++) {
-				for ( x = 0; x < 144; x++) {
-					*dst++ = *src;
-					src += 320;
+	if ( (GameConf.m_Rotate == 0) || ((GameConf.m_Rotate == 2)&&(HVMode == 0)) ) {
+		// Normal Scalers
+		switch (GameConf.m_ScreenRatioH) {
+			case 0:		// Native	224x144
+				for(y = 0; y < 144; y++, src += 320, dst += 320) memcpy(dst, src, 224*2);
+				break;
+			case 1:		// Fullscreen	224x144 > 320x240	7x3 > 10x5
+				upscale_224x144_to_320xXXX(dst, src, 240);
+				break;
+			case 2:		// Aspect	224x144 > 320x204
+				upscale_224x144_to_320xXXX(dst, src, 204);
+				break;
+			case 3: // 1.5x Sharp 336x216 (-8,12)
+				upscale_15x_sharp(actualScreen->pixels, src);
+				break;
+		}
+	} else {
+		// Rotate Scalers
+		src += (224-1);		// draw from Right-Top
+		switch (GameConf.m_ScreenRatioV) {
+			case 0:		// Rotate	224x144 > 144x224
+				for( y = 0; y < 224; y++) {
+					for ( x = 0; x < 144/2; x++) {
+						*(uint32_t*)dst = *src|(*(src+320)<<16);
+						dst += 2; src += 320*2;
+					}
+					dst += (320 - 144);
+					src -= (320 * 144) + 1;
 				}
-				dst += (320 - 144);
-				src -= (320 * 144) + 1;
-			}
-			break;
-		case SCREEN_RATIO_ROTATE_WIDE:		// RotateWide	224x144 > 288x224
-			src += 223;
-			for( y = 0; y < 224; y++) {
-				for ( x = 0; x < 144; x++) {
-					*dst++ = *src; *dst++ = *src;
-					src += 320;
+				break;
+			case 1:		// RotateFull	224x144 > 320x240
+				upscale_144x224_to_320x240_rotate(dst, src);
+				break;
+			case 2:		// RotateWide	224x144 > 288x224
+				for( y = 0; y < 224; y++) {
+					for ( x = 0; x < 144; x++) {
+						*(uint32_t*)dst = *src|(*src<<16);
+						dst += 2; src += 320;
+					}
+					dst += (320 - 288);
+					src -= (320 * 144) + 1;
 				}
-				dst += (320 - 288);
-				src -= (320 * 144) + 1;
-			}
-			break;
-		case SCREEN_RATIO_15X_SHARP: // 1.5x sharp 336x216 (-8,12)
-			upscale_15x_sharp(actualScreen->pixels, src);
-			break;
+				break;
+		}
 	}
-#endif
 
 	static char buffer[4];
 	if (GameConf.m_DisplayFPS) 
 	{
-#ifndef NATIVE_RESOLUTION
-		if (GameConf.m_ScreenRatio != SCREEN_RATIO_FULLSCREEN)
-#else
-		if ((GameConf.m_ScreenRatio != SCREEN_RATIO_NATIVE) && (GameConf.m_ScreenRatio != SCREEN_RATIO_FULLSCREEN))
-#endif
+		if (screen_to_draw_region.offset_y)
 		{
 			SDL_Rect rect;
 			rect.x = 0;
@@ -249,7 +235,6 @@ void take_screenshot(void)
 #endif
 }
 
-#ifdef TRIMUI
 #define AVERAGE16(c1, c2) (((c1) + (c2) + (((c1) ^ (c2)) & 0x0821))>>1)  //More accurate
 
 void upscale_224x144_to_320xXXX(uint16_t *dst, uint16_t *src, uint32_t height)
@@ -280,16 +265,11 @@ void upscale_224x144_to_320xXXX(uint16_t *dst, uint16_t *src, uint32_t height)
                 g = AVERAGE16(g, *(src+326));
             }
 
-            *(dst+0) = a;
-            *(dst+1) = b;
-            *(dst+2) = AVERAGE16(b,c);
-            *(dst+3) = c;
-            *(dst+4) = d;
-            *(dst+5) = AVERAGE16(d,e);
-            *(dst+6) = e;
-            *(dst+7) = f;
-            *(dst+8) = AVERAGE16(f,g);
-            *(dst+9) = g;
+            *(uint32_t*)(dst+0) = a|(b<<16);
+            *(uint32_t*)(dst+2) = AVERAGE16(b,c)|(c<<16);
+            *(uint32_t*)(dst+4) = d|(AVERAGE16(d,e)<<16);
+            *(uint32_t*)(dst+6) = e|(f<<16);
+            *(uint32_t*)(dst+8) = AVERAGE16(f,g)|(g<<16);
 
             src+=7;
             dst+=10;
@@ -300,17 +280,82 @@ void upscale_224x144_to_320xXXX(uint16_t *dst, uint16_t *src, uint32_t height)
         if(Eh >= height) {
             Eh -= height;
             vf = 0;
-	    	src += (320 - 224);
+	    src += (320 - 224);
         }
         else {
             vf = 1;
 	    src -= 224;
+		}
 	}
+}
+
+void upscale_144x224_to_320x240_rotate(uint16_t *dst, uint16_t *src)	//9:14 > 20:15
+{
+    register uint_fast16_t a, b, c, d, e;
+    int Eh = 0;
+    int vf = 0;
+
+    for (int y = 0; y < 240; y++)
+    {
+        for (int x = 0; x < 144/9; x++)
+        {
+            a = *(src+0);
+            b = *(src+320);
+            c = *(src+320*2);
+            d = *(src+320*3);
+            e = *(src+320*4);
+
+            if(vf == 1){
+                a = AVERAGE16(a, *(src-1));
+                b = AVERAGE16(b, *(src+320-1));
+                c = AVERAGE16(c, *(src+320*2-1));
+                d = AVERAGE16(d, *(src+320*3-1));
+                e = AVERAGE16(e, *(src+320*4-1));
+            }
+
+            *(uint32_t*)(dst+0) = a|(a<<16);
+            *(uint32_t*)(dst+2) = b|(b<<16);
+            *(uint32_t*)(dst+4) = c|(c<<16);
+            *(uint32_t*)(dst+6) = d|(d<<16);
+            *(uint32_t*)(dst+8) = AVERAGE16(d,e)|(e<<16);
+
+            a = *(src+320*5);
+            b = *(src+320*6);
+            c = *(src+320*7);
+            d = *(src+320*8);
+
+            if(vf == 1){
+                a = AVERAGE16(a, *(src+320*5-1));
+                b = AVERAGE16(b, *(src+320*6-1));
+                c = AVERAGE16(c, *(src+320*7-1));
+                d = AVERAGE16(d, *(src+320*8-1));
+            }
+
+            *(uint32_t*)(dst+10) = e|(a<<16);
+            *(uint32_t*)(dst+12) = a|(b<<16);
+            *(uint32_t*)(dst+14) = b|(c<<16);
+            *(uint32_t*)(dst+16) = c|(AVERAGE16(c,d)<<16);
+            *(uint32_t*)(dst+18) = d|(d<<16);
+
+            src+=320*9;
+            dst+=20;
+
+        }
+
+        Eh += 224;
+        if(Eh >= 240) {
+            Eh -= 240;
+            vf = 0;
+	    src -= (320*144)+1;
+        }
+        else {
+            vf = 1;
+	    src -= (320*144);
+		}
     }
 }
 
 void upscale_15x_sharp(uint16_t *dst_px, uint16_t *src_px) {
-	// src might be 320px...
 	uint16_t *next_row, *prev_row;
 	
 	dst_px += 320 * 12;
@@ -373,4 +418,3 @@ void upscale_15x_sharp(uint16_t *dst_px, uint16_t *src_px) {
 		}
 	}
 }
-#endif

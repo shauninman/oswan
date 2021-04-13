@@ -8,6 +8,7 @@ extern void graphics_paint(void);
 #include "WSRender.h"
 #include "WS.h"
 #include "game_input.h"
+#include "drawing.h"
 #ifdef SOUND_EMULATION
 #include "WSApu.h"
 #endif
@@ -32,9 +33,7 @@ struct EEPROM sCEep;        	/* EEPROM読み書き用構造体（カートリッ
 uint8_t CartKind;     	/* セーブメモリの種類（CK_EEP = EEPROM）	*/
 
 static int32_t ButtonState = 0x0000;    /* Button state: B.A.START.OPTION.X4.X3.X2.X1.Y4.Y3.Y2.Y1	*/
-static uint8_t HVMode;
-static uint16_t HTimer;
-static uint16_t VTimer;
+uint8_t HVMode;
 static uint8_t RtcCount;
 
 #ifdef FRAMESKIP
@@ -303,6 +302,12 @@ WIO(w0x07) {
         Scr1TMap = IRAM + ((V & 0x0F) << 11);
         Scr2TMap = IRAM + ((V & 0xF0) << 7);
         return 0; }
+WIO(w0x15) {
+	if (V & 6) {
+		HVMode = ((V & 4)>>2)^1;
+		if (GameConf.m_Rotate == 2) Set_DrawRegion();	// Auto Rotate
+		}
+        return 0; }
 WIO(w1C1F) {
         if(IO[COLCTL] & 0x80) return 0;
         int32_t i = (A - 0x1C) << 1;
@@ -368,16 +373,7 @@ WIO(w0x90) {
 #endif
 WIO(w0x91) { IO[A] = V | 0x80; return 1; }	/* ヘッドホンは常にオン */
 WIO(w0xA0) { IO[A] = 0x02; return 1; }
-WIO(w0xA2) {
-        if(V & 0x01) HTimer = *(uint16_t*)(IO + HPRE); else HTimer = 0;
-        if(V & 0x04) VTimer = *(uint16_t*)(IO + VPRE); else VTimer = 0;
-        return 0; }
-WIO(wA4A5) { IO[A] = V; HTimer = *(uint16_t*)(IO + HPRE); return 1; }	/* FF */
-WIO(wA6A7) {
-        IO[A] = V;
-        IO[A + 4] = V; /* Dark eyes */
-        if(IO[TIMCTL] & 0x04) VTimer = *(uint16_t*)(IO + VPRE);
-        return 1; }
+WIO(wA4A7) { IO[A] = V; IO[A + 4] = V; return 1; }	// H/Vblank Counter(A8～AB)にも書き込み
 WIO(w0xB3) {
         if(V & 0x20) V &= 0xDF;
         IO[A] = V | 0x04; return 1; }
@@ -423,7 +419,7 @@ WIO(w0xCB) { return 0; }	/* RTC DATA */
 
 uint32_t (*WriteIOtable[0xCC])(const uint32_t A,uint8_t V) = {
 	wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,w0x07,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,
-	wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,w1C1F,w1C1F,w1C1F,w1C1F,
+	wNONE,wNONE,wNONE,wNONE,wNONE,w0x15,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,w1C1F,w1C1F,w1C1F,w1C1F,
 	w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,
 	w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,w203F,
 	wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,w0x48,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,
@@ -437,7 +433,7 @@ uint32_t (*WriteIOtable[0xCC])(const uint32_t A,uint8_t V) = {
 	wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,
 	wNONE,w0x91,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,
 #endif
-	w0xA0,wNONE,w0xA2,wNONE,wA4A5,wA4A5,wA6A7,wA6A7,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,
+	w0xA0,wNONE,wNONE,wNONE,wA4A7,wA4A7,wA4A7,wA4A7,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,
 	wNONE,wNONE,wNONE,w0xB3,wNONE,w0xB5,w0xB6,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,wNONE,w0xBE,wNONE,
 	w0xC0,w0xC1,w0xC2,w0xC3,wNONE,wNONE,wNONE,wNONE,w0xC8,wNONE,w0xCA,w0xCB
 	};
@@ -651,60 +647,38 @@ void WsRomPatch(const uint8_t *buf)
     }
 }
 
-static void Interrupt0(void) {
+static void Interrupt0(void) {		// ボタン入力割り込み
 	static int32_t Joyz=0x0000;
-	if (IO[RSTRL] == 144)
-	{
-	    uint32_t VCounter;
-	
-	    ButtonState = WsInputGetState(HVMode);
-	    if((ButtonState ^ Joyz) & Joyz)
-	    {
-	        if(IO[IRQENA] & KEY_IFLAG)
-	        {
-	            IO[IRQACK] |= KEY_IFLAG;
-	        }
-	    }
-	    Joyz = ButtonState;
-	    /* Vblankカウントアップ */
-	    VCounter = *(uint16_t*)(IO + VCNTH) << 16 | *(uint16_t*)(IO + VCNTL);
-	    VCounter++;
-	    *(uint16_t*)(IO + VCNTL) = (uint16_t)VCounter;
-	    *(uint16_t*)(IO + VCNTH) = (uint16_t)(VCounter >> 16);
+	if (IO[RSTRL] == 144) {
+		ButtonState = WsInputGetState();
+		if ((ButtonState ^ Joyz) & Joyz)
+			// ButtonInput Interrupt
+			if (IO[IRQENA] & KEY_IFLAG) IO[IRQACK] |= KEY_IFLAG;
+		Joyz = ButtonState;
 	}
 }
 
-static void Interrupt1(void) {
+static void Interrupt1(void) {		// サウンド合成(1)
 #ifdef SOUND_ON
 	apuWaveSet0();	// 24kHz拡張用: この時点での周波数・音量を保存
 #endif
 }
-static void Interrupt2(void) { }
 
-static void Interrupt3(void) { }
-
-static void Interrupt4(void) {
-	int32_t i,j;
-	if(IO[RSTRL] == 142)
-	{
-		i = (IO[SPRTAB] & 0x1F) << 9;
+static void Interrupt2(void) {		// ライン描画＋画面表示
+	if(IO[RSTRL] == 142) {
+		int32_t i = (IO[SPRTAB] & 0x1F) << 9;
 		i += IO[SPRBGN] << 2;
-		j = IO[SPRCNT] << 2;
+		int32_t j = IO[SPRCNT] << 2;
 		memcpy(SprTMap, IRAM + i, j);
 		SprTTMap = SprTMap;
 		SprETMap= SprTMap + j - 4;
 	}
 	
-	if(IO[LCDSLP] & 0x01)
-	{
+	if(IO[LCDSLP] & 0x01) {
 		#ifdef FRAMESKIP
-		if(IO[RSTRL] == 0)
-		{
+		if(IO[RSTRL] == 0) {
 			SkipCnt--;
-			if(SkipCnt < 0)
-			{
-				SkipCnt = 4;
-			}
+			if (SkipCnt < 0) SkipCnt = 4;
 		}
 		if(TblSkip[FrameSkip][SkipCnt])
 		#else
@@ -713,28 +687,41 @@ static void Interrupt4(void) {
 		#endif
 		#endif
 		{
-			if(IO[RSTRL] < 144)
-			{
-				RefreshLine(IO[RSTRL]);
-			}
-			else if(IO[RSTRL] == 144)
-			{
-				graphics_paint();
-			}
+			if(IO[RSTRL] < 144) RefreshLine(IO[RSTRL]);
+			else if(IO[RSTRL] == 144) graphics_paint();
 		}
 		#ifdef AUDIOFRAMESKIP
-			if(IO[RSTRL] == 144) {
-				if (apuBufLen() < (SND_RNGSIZE * UNDERRUN_THRESHOLD))
-				{
-					SkipCnt++;
-					if (SkipCnt > MAX_SKIP_COUNT) SkipCnt = 0;
-				} else	SkipCnt = 0;
-			}
+		if(IO[RSTRL] == 144) {
+			if (apuBufLen() < (SND_RNGSIZE * UNDERRUN_THRESHOLD)) {
+				SkipCnt++;
+				if (SkipCnt > MAX_SKIP_COUNT) SkipCnt = 0;
+			} else	SkipCnt = 0;
+		}
 		#endif
 	}
 }
 
-static void Interrupt5(void) {
+static void Interrupt3(void) {		// ライン描画割り込み
+	// HLine Interrupt
+	if((IO[IRQENA] & RST_IFLAG) && (IO[RSTRL] == IO[RSTRLC])) IO[IRQACK] |= RST_IFLAG;
+}
+
+static void Interrupt4(void) {		// VBlankカウンタ割り込み
+	if (IO[RSTRL] == 144) {
+		// VCounter Interrupt
+		uint16_t VTimer = *(uint16_t*)(IO + VCNT);
+		if ((IO[TIMCTL] & 0x04)&&(VTimer)) {
+			VTimer--;	/* Vblankカウントダウン */
+			if (VTimer == 0) {
+			        if (IO[TIMCTL] & 0x08) VTimer = *(uint16_t*)(IO + VPRE);
+			        if (IO[IRQENA] & VTM_IFLAG) IO[IRQACK] |= VTM_IFLAG;
+			}
+			*(uint16_t*)(IO + VCNT) = VTimer;
+		}
+	}
+}
+
+static void Interrupt5(void) {		// サウンド合成(2)
 #ifdef SOUND_ON
 	/* Hblank毎に1サンプルセットすることで12KHzのwaveデータが出来る */
 	apuWaveSet();
@@ -742,62 +729,28 @@ static void Interrupt5(void) {
 #endif
 }
 
-static void Interrupt6(void) {
-	if((IO[TIMCTL] & 0x01) && HTimer)
-	{
-	    HTimer--;
-	    if(!HTimer)
-	    {
-	        if(IO[TIMCTL] & 0x02)
-	        {
-	            HTimer = *(uint16_t*)(IO + HPRE);
-	        }
-	        if(IO[IRQENA] & HTM_IFLAG)
-	        {
-	            IO[IRQACK] |= HTM_IFLAG;
-	        }
-	    }
-	}
-	else if(*(uint16_t*)(IO + HPRE) == 1)
-	{
-	    if(IO[IRQENA] & HTM_IFLAG)
-	    {
-	        IO[IRQACK] |= HTM_IFLAG;
-	    }
-	}
-	if((IO[IRQENA] & VBB_IFLAG) && (IO[RSTRL] == 144))
-	{
-	    IO[IRQACK] |= VBB_IFLAG;
-	}
-	if((IO[TIMCTL] & 0x04) && (IO[RSTRL] == 144) && VTimer)
-	{
-	    VTimer--;
-	    if(!VTimer)
-	    {
-	        if(IO[TIMCTL] & 0x08)
-	        {
-	            VTimer = *(uint16_t*)(IO + VPRE);
-	        }
-	        if(IO[IRQENA] & VTM_IFLAG)
-	        {
-	            IO[IRQACK] |= VTM_IFLAG;
-	        }
-	    }
-	}
-	if((IO[IRQENA] & RST_IFLAG) && (IO[RSTRL] == IO[RSTRLC]))
-	{
-	    IO[IRQACK] |= RST_IFLAG;
+static void Interrupt6(void) {		// VBlank割り込み
+	if (IO[RSTRL] == 144) {
+		// VBlank Interrupt
+		if(IO[IRQENA] & VBB_IFLAG) IO[IRQACK] |= VBB_IFLAG;
 	}
 }
 
-static void Interrupt7(void) {
+static void Interrupt7(void) {		// HBlankカウンタ割り込み
+	// HCounter Interrupt
+	uint16_t HTimer = *(uint16_t*)(IO + HCNT);
+	if ((IO[TIMCTL] & 0x01)&&(HTimer)) {
+		HTimer--;	/* Hblankカウントダウン */
+		if (HTimer == 0) {
+		        if (IO[TIMCTL] & 0x02) HTimer = *(uint16_t*)(IO + HPRE);
+		        if (IO[IRQENA] & HTM_IFLAG) IO[IRQACK] |= HTM_IFLAG;
+		}
+		*(uint16_t*)(IO + HCNT) = HTimer;
+	} else if (*(uint16_t*)(IO + HPRE) == 1)	// HPRE=1 の時無条件で割り込み
+		if(IO[IRQENA] & HTM_IFLAG) IO[IRQACK] |= HTM_IFLAG;
+
 	IO[RSTRL]++;
-	if(IO[RSTRL] >= 159)
-	{
-	    IO[RSTRL] = 0;
-	}
-	/* Hblankカウントアップ */
-	(*(uint16_t*)(IO + HCNT))++;
+	if (IO[RSTRL] >= 159) IO[RSTRL] = 0;
 }
 
 void (*InterruptTable[8])(void) = {
@@ -841,11 +794,6 @@ int32_t WsRun(void)
         }
     }
     return 0;
-}
-
-void SetHVMode(const uint8_t Mode)
-{
-    HVMode = Mode;
 }
 
 void WsInit(void) {

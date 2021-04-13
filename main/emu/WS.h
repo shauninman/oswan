@@ -22,6 +22,7 @@ extern int32_t RAMSize;             			/* C-RAM総容量 		*/
 extern uint16_t IEep[64];
 extern struct EEPROM sIEep;
 extern struct EEPROM sCEep;
+extern uint8_t HVMode;
 
 #define CK_EEP 1
 extern uint8_t CartKind;
@@ -33,6 +34,5 @@ void WsSetDir(void);
 int32_t WsRun(void);
 void WsInit(void);
 void WsDeInit(void);
-void SetHVMode(const uint8_t Mode);
 
 #endif

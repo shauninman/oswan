@@ -83,8 +83,9 @@ uint8_t ReadIO(uint32_t A);
 #define HPRE        0xA4        
 #define VPRE        0xA6        
 #define HCNT        0xA8        
-#define VCNTL       0xAA          /*L*/
-#define VCNTH       0xAC          /*H*/
+#define VCNT        0xAA        
+//#define VCNTL       0xAA          /*L*/
+//#define VCNTH       0xAC          /*H*/
 
 #define IRQBSE      0xB0         
 #define COMDT       0xB1         
