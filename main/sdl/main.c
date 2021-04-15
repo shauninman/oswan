@@ -19,6 +19,7 @@ KOS_INIT_FLAGS(INIT_DEFAULT | INIT_MALLOCSTATS);
 #include <dlfcn.h>
 #include <mmenu.h>
 static void* mmenu = NULL;
+static int resume_slot = -1;
 char rom_path[512];
 char save_path[512];
 
@@ -117,6 +118,10 @@ int main(int argc, char *argv[])
 	m_Flag = GF_MAINUI;
 	
 	mmenu = dlopen("libmmenu.so", RTLD_LAZY);
+	if (mmenu) {
+		ResumeSlot_t ResumeSlot = (ResumeSlot_t)dlsym(mmenu, "ResumeSlot");
+		if (ResumeSlot) resume_slot = ResumeSlot();
+	}
 	
 	/* Init graphics & sound */
 	initSDL();
@@ -243,6 +248,13 @@ int main(int argc, char *argv[])
 					interval = (1.0 / 60) * 1000000;
 					nextTick = SDL_UXTimerRead() + interval;
 					#endif
+					
+					if (resume_slot!=-1) {
+						GameConf.save_slot = resume_slot;
+						GameConf.load_slot = resume_slot;
+						menuLoadState();
+						resume_slot = -1;
+					}
 				}
 				else 
 				{
