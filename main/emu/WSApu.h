@@ -26,7 +26,10 @@ extern NOISE Noise;
 
 extern int8_t VoiceOn;
 //extern int16_t Sound[7];
+extern int32_t stereo;
 
+void init_SDLaudio(void);
+void check_USBplug(void);
 int32_t apuBufLen(void);
 void apuWaveVolume(int32_t);
 void apuWaveCreate(void);

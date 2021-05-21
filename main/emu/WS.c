@@ -51,7 +51,9 @@ static const int32_t TblSkip[5][5] = {
 #ifdef AUDIOFRAMESKIP
 static int32_t SkipCnt = 0;
 #define UNDERRUN_THRESHOLD	0.5
+#ifndef MAX_SKIP_COUNT
 #define MAX_SKIP_COUNT		5
+#endif
 #endif
 
 #ifdef SOUND_EMULATION
@@ -159,11 +161,6 @@ void ComEeprom(struct EEPROM *eeprom, const uint16_t *cmd, uint16_t *data)
 uint8_t ReadMem(const uint32_t A)
 {
     return Page[(A >> 16) & 0xF][A & 0xFFFF];
-}
-
-void WriteMem(const uint32_t A, const uint8_t V)
-{
-    (*WriteMemFnTable[(A >> 16) & 0x0F])(A, V);
 }
 
 static void WriteRom(const uint32_t A, const uint8_t V)
@@ -294,6 +291,30 @@ static void WriteCRam(const uint32_t A, const uint8_t V)
             }
         }
     }
+}
+
+void (*WriteMemFnTable[16])(const uint32_t A,uint8_t V) = {
+    WriteIRam,
+    WriteCRam,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+    WriteRom,
+};
+
+void WriteMem(const uint32_t A, const uint8_t V)
+{
+    (*WriteMemFnTable[(A >> 16) & 0x0F])(A, V);
 }
 
 #define	WIO(func_name) static uint32_t func_name(const uint32_t A,uint8_t V)
@@ -503,25 +524,6 @@ uint8_t ReadIO(const uint32_t A)
     }
 }
 
-WriteMemFn WriteMemFnTable[16]= {
-    WriteIRam,
-    WriteCRam,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-    WriteRom,
-};
-
 void WsReset (void)
 {
     int32_t i, j;
@@ -692,7 +694,7 @@ static void Interrupt2(void) {		// ライン描画＋画面表示
 		}
 		#ifdef AUDIOFRAMESKIP
 		if(IO[RSTRL] == 144) {
-			if (apuBufLen() < (SND_RNGSIZE * UNDERRUN_THRESHOLD)) {
+			if (apuBufLen() < ((SND_RNGSIZE<<stereo) * UNDERRUN_THRESHOLD)) {
 				SkipCnt++;
 				if (SkipCnt > MAX_SKIP_COUNT) SkipCnt = 0;
 			} else	SkipCnt = 0;
@@ -717,7 +719,8 @@ static void Interrupt4(void) {		// VBlankカウンタ割り込み
 			        if (IO[IRQENA] & VTM_IFLAG) IO[IRQACK] |= VTM_IFLAG;
 			}
 			*(uint16_t*)(IO + VCNT) = VTimer;
-		}
+		} else if (*(uint16_t*)(IO + VPRE) == 1)	// VPRE=1 の時無条件で割り込み(対局囲碁平成棋院)
+			if(IO[IRQENA] & VTM_IFLAG) IO[IRQACK] |= VTM_IFLAG;
 	}
 }
 

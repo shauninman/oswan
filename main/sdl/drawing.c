@@ -111,6 +111,7 @@ void Set_DrawRegion(void)
 				screen_to_draw_region.offset_y = 18; 
 				break;
 			case 3:		// 1.5x Sharp
+			case 4:		// 1.5x Sharp2
 				screen_to_draw_region.w	= 320;
 				screen_to_draw_region.h	= 216;
 				screen_to_draw_region.offset_x = 0;
@@ -148,7 +149,7 @@ void Set_DrawRegion(void)
 
 void screen_draw(void)
 {
-	uint16_t *src = (uint16_t *) FrameBuffer +8;	// +8 offset
+	uint16_t *src = (uint16_t *) FrameBuffer +8;	// +8 offset , width = 240
 	uint16_t *dst = (uint16_t *) actualScreen->pixels + screen_to_draw_region.offset_x + screen_to_draw_region.offset_y * 320;
 	uint32_t x , y;
 	SDL_LockSurface(actualScreen);
@@ -157,7 +158,7 @@ void screen_draw(void)
 		// Normal Scalers
 		switch (GameConf.m_ScreenRatioH) {
 			case 0:		// Native	224x144
-				for(y = 0; y < 144; y++, src += 320, dst += 320) memcpy(dst, src, 224*2);
+				for(y = 0; y < 144; y++, src += 240, dst += 320) memcpy(dst, src, 224*2);
 				break;
 			case 1:		// Fullscreen	224x144 > 320x240	7x3 > 10x5
 				upscale_224x144_to_320xXXX(dst, src, 240);
@@ -165,35 +166,40 @@ void screen_draw(void)
 			case 2:		// Aspect	224x144 > 320x204
 				upscale_224x144_to_320xXXX(dst, src, 204);
 				break;
-			case 3: // 1.5x Sharp 336x216 (-8,12)
-				upscale_15x_sharp(actualScreen->pixels, src);
+			case 3:		// 1.5x Sharp	213.5x144 > 320x216 (crop 10.5px side)
+				src += 5;
+				upscale_15x_sharp(dst,src);
+				break;
+			case 4:		// 1.5x Sharp2	213.5x144 > 320x216 (crop 10.5px side)
+				src += 5;
+				upscale_15x_sharp2(dst,src);
 				break;
 		}
 	} else {
 		// Rotate Scalers
-		src += (224-1);		// draw from Right-Top
 		switch (GameConf.m_ScreenRatioV) {
 			case 0:		// Rotate	224x144 > 144x224
-				for( y = 0; y < 224; y++) {
-					for ( x = 0; x < 144/2; x++) {
-						*(uint32_t*)dst = *src|(*(src+320)<<16);
-						dst += 2; src += 320*2;
+				dst += (320*(224-1));	// draw from Left-Down
+				for ( x = 0; x < 144/2; x++) {
+					for( y = 0; y < 224; y++) {
+						*(uint32_t*)dst = *src|(*(src+240)<<16);
+						src++; dst -= 320;
 					}
-					dst += (320 - 144);
-					src -= (320 * 144) + 1;
+					src += (240-224)+240; dst += (320*224)+2;
 				}
 				break;
 			case 1:		// RotateFull	224x144 > 320x240
+				dst += (320*(240-1));
 				upscale_144x224_to_320x240_rotate(dst, src);
 				break;
 			case 2:		// RotateWide	224x144 > 288x224
-				for( y = 0; y < 224; y++) {
-					for ( x = 0; x < 144; x++) {
+				dst += (320*(224-1));
+				for ( x = 0; x < 144; x++) {
+					for( y = 0; y < 224; y++) {
 						*(uint32_t*)dst = *src|(*src<<16);
-						dst += 2; src += 320;
+						src++; dst -= 320;
 					}
-					dst += (320 - 288);
-					src -= (320 * 144) + 1;
+					src += (240-224); dst += (320*224)+2;
 				}
 				break;
 		}
@@ -255,14 +261,14 @@ void upscale_224x144_to_320xXXX(uint16_t *dst, uint16_t *src, uint32_t height)
             f = *(src+5);
             g = *(src+6);
 
-            if(vf == 1){
-                a = AVERAGE16(a, *(src+320));
-                b = AVERAGE16(b, *(src+321));
-                c = AVERAGE16(c, *(src+322));
-                d = AVERAGE16(d, *(src+323));
-                e = AVERAGE16(e, *(src+324));
-                f = AVERAGE16(f, *(src+325));
-                g = AVERAGE16(g, *(src+326));
+            if (vf) {
+                a = AVERAGE16(a, *(src+240));
+                b = AVERAGE16(b, *(src+241));
+                c = AVERAGE16(c, *(src+242));
+                d = AVERAGE16(d, *(src+243));
+                e = AVERAGE16(e, *(src+244));
+                f = AVERAGE16(f, *(src+245));
+                g = AVERAGE16(g, *(src+246));
             }
 
             *(uint32_t*)(dst+0) = a|(b<<16);
@@ -280,123 +286,244 @@ void upscale_224x144_to_320xXXX(uint16_t *dst, uint16_t *src, uint32_t height)
         if(Eh >= height) {
             Eh -= height;
             vf = 0;
-	    src += (320 - 224);
+	    src += (240 - 224);
         }
         else {
             vf = 1;
 	    src -= 224;
-		}
 	}
+    }
 }
 
 void upscale_144x224_to_320x240_rotate(uint16_t *dst, uint16_t *src)	//9:14 > 20:15
 {
-    register uint_fast16_t a, b, c, d, e;
+    register uint_fast16_t a, b;
     int Eh = 0;
     int vf = 0;
+    int x,y;
 
-    for (int y = 0; y < 240; y++)
+#define	RAB		a = *src++; b = *src++
+#define RWAB		RAB; WA; WB
+#define	R14_W15		RWAB; RWAB; RWAB; RWAB; RWAB; RWAB; RAB; WA; a = AVERAGE16(a,b); WA; WB
+#define	R14_W15b	RWAB; RWAB; RWAB; RWAB; RWAB; RWAB; RAB; WA; a = AVERAGE16(a,b); WAb; WB
+
+    for (x = 0; x < 144; x++)
     {
-        for (int x = 0; x < 144/9; x++)
-        {
-            a = *(src+0);
-            b = *(src+320);
-            c = *(src+320*2);
-            d = *(src+320*3);
-            e = *(src+320*4);
-
-            if(vf == 1){
-                a = AVERAGE16(a, *(src-1));
-                b = AVERAGE16(b, *(src+320-1));
-                c = AVERAGE16(c, *(src+320*2-1));
-                d = AVERAGE16(d, *(src+320*3-1));
-                e = AVERAGE16(e, *(src+320*4-1));
-            }
-
-            *(uint32_t*)(dst+0) = a|(a<<16);
-            *(uint32_t*)(dst+2) = b|(b<<16);
-            *(uint32_t*)(dst+4) = c|(c<<16);
-            *(uint32_t*)(dst+6) = d|(d<<16);
-            *(uint32_t*)(dst+8) = AVERAGE16(d,e)|(e<<16);
-
-            a = *(src+320*5);
-            b = *(src+320*6);
-            c = *(src+320*7);
-            d = *(src+320*8);
-
-            if(vf == 1){
-                a = AVERAGE16(a, *(src+320*5-1));
-                b = AVERAGE16(b, *(src+320*6-1));
-                c = AVERAGE16(c, *(src+320*7-1));
-                d = AVERAGE16(d, *(src+320*8-1));
-            }
-
-            *(uint32_t*)(dst+10) = e|(a<<16);
-            *(uint32_t*)(dst+12) = a|(b<<16);
-            *(uint32_t*)(dst+14) = b|(c<<16);
-            *(uint32_t*)(dst+16) = c|(AVERAGE16(c,d)<<16);
-            *(uint32_t*)(dst+18) = d|(d<<16);
-
-            src+=320*9;
-            dst+=20;
-
-        }
-
-        Eh += 224;
-        if(Eh >= 240) {
-            Eh -= 240;
-            vf = 0;
-	    src -= (320*144)+1;
-        }
-        else {
-            vf = 1;
-	    src -= (320*144);
+	if (vf) {	// 1(.5) to 3 lines
+	    if (((uintptr_t)dst & 3) == 0) {	// alignment check
+		for (y = 0; y < 224/14; y++)
+		{
+#define	WA	*(uint32_t*)dst = a|a<<16; *(dst+2) = AVERAGE16(a,*(src+238)); dst-=320
+#define	WAb	*(uint32_t*)dst = a|a<<16; *(dst+2) = AVERAGE16(a,AVERAGE16(*(src+238),*(src+239))); dst-=320
+#define	WB	*(uint32_t*)dst = b|b<<16; *(dst+2) = AVERAGE16(b,*(src+239)); dst-=320
+		R14_W15b;
 		}
+	    } else {
+		for (y = 0; y < 224/14; y++)
+		{
+#undef	WA
+#undef	WAb
+#undef	WB
+#define	WA	*dst = a; *(uint32_t*)(dst+1) = a|AVERAGE16(a,*(src+238))<<16; dst-=320
+#define	WAb	*dst = a; *(uint32_t*)(dst+1) = a|AVERAGE16(a,AVERAGE16(*(src+238),*(src+239)))<<16; dst-=320
+#define	WB	*dst = b; *(uint32_t*)(dst+1) = b|AVERAGE16(b,*(src+239))<<16; dst-=320
+		R14_W15b;
+		}
+	    }
+	    dst += (320*240)+3;
+	} else {	// 1 to 2 lines
+	    if (((uintptr_t)dst & 3) == 0) {	// alignment check
+		for (y = 0; y < 224/14; y++)
+		{
+#undef	WA
+#undef	WAb
+#undef	WB
+#define	WA	*(uint32_t*)dst = a|a<<16; dst-=320
+#define	WB	*(uint32_t*)dst = b|b<<16; dst-=320
+		R14_W15;
+		}
+	    } else {
+	        for (y = 0; y < 224/14; y++)
+		{
+#undef	WA
+#undef	WB
+#define	WA	*dst = a; *(dst+1) = a; dst-=320
+#define	WB	*dst = b; *(dst+1) = b; dst-=320
+		R14_W15;
+		}
+	    }
+	    dst += (320*240)+2;
+	}
+	src += (240 - 224);
+	Eh += 125;	// 144;
+	if (Eh >= (320/2)) { Eh -= (320/2); vf = 0; } else vf = 1;
     }
+#undef	WA
+#undef	WB
+#undef	RAB
+#undef	RWAB
+#undef	R14_W15
 }
 
 #define DARKER(c1, c2) (c1 > c2 ? c2 : c1)
+#define LIGHTER(c1, c2) (c1 > c2 ? c1 : c2)
 
-// WS 224x144 to 336x216 (-8,12) or 318x216 (1,12)
-void upscale_15x_sharp(uint16_t *dst, uint16_t *src) {
-	register uint_fast16_t a,b,c,d,e,f;
-	uint32_t x,y;
+void upscale_15x_sharp(uint16_t *dst, uint16_t *src)
+{	//	213.5x144 > 320x216 (crop 10.5px side)
+    register uint_fast16_t a, b, c, d;
+    int Eh = 0;
+    int vf = 0;
 
-	// centering
-	dst += (320*((240-216)/2)) + (320-318)/2;
-	// clipping
-	src += 6;
+    for (int y = 0; y < 216; y++)
+    {
+	for (int x = 0; x < 318/6; x++)
+	{
+	    a = *(src+0);
+	    b = *(src+1);
+	    c = *(src+2);
+	    d = *(src+3);
 	
-	for (y=(144/2); y>0 ; y--, src+=320+(320-212), dst+=320*2+(320-318))
-	{	
-		for (x=(212/4); x>0; x--, src+=4, dst+=6)
-		{
-			a = *(src+0);
-			b = *(src+1);
-			c = *(src+320);
-			d = *(src+320+1);
-			e = DARKER(a,c);
-			f = DARKER(b,d);
-
-			*(uint32_t*)(dst+  0) = a|(DARKER(a,b)<<16);
-			*(uint32_t*)(dst+320) = e|(DARKER(e,f)<<16);
-			*(uint32_t*)(dst+640) = c|(DARKER(c,d)<<16);
-
-			c = *(src+320+2);
-			a = *(src+2);
-			e = DARKER(a,c);
-
-			*(uint32_t*)(dst+  2) = b|(a<<16);
-			*(uint32_t*)(dst+322) = f|(e<<16);
-			*(uint32_t*)(dst+642) = d|(c<<16);
-
-			b = *(src+3);
-			d = *(src+320+3);
-			f = DARKER(b,d);
-
-			*(uint32_t*)(dst+  4) = DARKER(a,b)|(b<<16);
-			*(uint32_t*)(dst+324) = DARKER(e,f)|(f<<16);
-			*(uint32_t*)(dst+644) = DARKER(c,d)|(d<<16);
-		}
+	    if (vf) {
+		a = DARKER(a, *(src+240));
+		b = DARKER(b, *(src+241));
+		c = DARKER(c, *(src+242));
+		d = DARKER(d, *(src+243));
+	    }
+	
+	    *(uint32_t*)(dst+0) = a|(DARKER(a,b)<<16);
+	    *(uint32_t*)(dst+2) = b|(c<<16);
+	    *(uint32_t*)(dst+4) = (DARKER(c,d))|(d<<16);
+	
+	    src+=4;
+	    dst+=6;
 	}
+
+	// last 2px
+	a = *(src+0);
+	b = *(src+1);
+	    if (vf) {
+		a = DARKER(a, *(src+240));
+		b = DARKER(b, *(src+241));
+	    }
+	*(uint32_t*)(dst+0) = a|(DARKER(a,b)<<16);
+	dst += 2;
+
+        Eh += 144;
+        if(Eh >= 216) {
+            Eh -= 216;
+            vf = 0;
+	    src += (240 - 212);
+        }
+        else {
+            vf = 1;
+	    src -= 212;
+	}
+    }
 }
+
+void upscale_15x_sharp2(uint16_t *dst, uint16_t *src)
+{	//	213.5x144 > 320x216 (crop 10.5px side)
+    register uint_fast16_t a, b, c, d;
+    int Eh = 0;
+    int vf = 0;
+
+    for (int y = 0; y < 216; y++)
+    {
+	for (int x = 0; x < 318/6; x++)
+	{
+	    a = *(src+0);
+	    b = *(src+1);
+	    c = *(src+2);
+	    d = *(src+3);
+	
+	    if (vf) {
+		a = DARKER(a, *(src+240));
+		b = DARKER(b, *(src+241));
+		c = DARKER(c, *(src+242));
+		d = DARKER(d, *(src+243));
+	    }
+	
+	    *(uint32_t*)(dst+0) = a|(LIGHTER(a,b)<<16);
+	    *(uint32_t*)(dst+2) = b|(c<<16);
+	    *(uint32_t*)(dst+4) = (LIGHTER(c,d))|(d<<16);
+	
+	    src+=4;
+	    dst+=6;
+	}
+
+	// last 2px
+	a = *(src+0);
+	b = *(src+1);
+	    if (vf) {
+		a = DARKER(a, *(src+240));
+		b = DARKER(b, *(src+241));
+	    }
+	*(uint32_t*)(dst+0) = a|(LIGHTER(a,b)<<16);
+	dst += 2;
+
+        Eh += 144;
+        if(Eh >= 216) {
+            Eh -= 216;
+            vf = 0;
+	    src += (240 - 212);
+        }
+        else {
+            vf = 1;
+	    src -= 212;
+	}
+    }
+}
+/*
+void upscale_15x_scanline(uint16_t *dst, uint16_t *src)
+{	//	213.5x144 > 320x216 (crop 10.5px side)
+    register uint_fast16_t a, b, c, d;
+    int Eh = 0;
+    int vf = 0;
+
+    for (int y = 0; y < 216; y++)
+    {
+	for (int x = 0; x < 318/6; x++)
+	{
+	    a = *(src+0);
+	    b = *(src+1);
+	    c = *(src+2);
+	    d = *(src+3);
+	
+	    if (vf) {
+		a = ((a & 0xF7DE)+((*(src+240) & 0xE79C)>>1))>>1;
+		b = ((b & 0xF7DE)+((*(src+241) & 0xE79C)>>1))>>1;
+		c = ((c & 0xF7DE)+((*(src+242) & 0xE79C)>>1))>>1;
+		d = ((d & 0xF7DE)+((*(src+243) & 0xE79C)>>1))>>1;
+	    }
+	
+	    *(uint32_t*)(dst+0) = a|(((a & 0xF7DE)+((b & 0xE79C)>>1))<<15);
+	    *(uint32_t*)(dst+2) = b|(c<<16);
+	    *(uint32_t*)(dst+4) = (((c & 0xF7DE)+((d & 0xE79C)>>1))>>1)|(d<<16);
+	
+	    src+=4;
+	    dst+=6;
+	}
+
+	// last 2px
+	a = *(src+0);
+	b = *(src+1);
+	    if (vf) {
+		a = ((a & 0xF7DE)+((*(src+240) & 0xE79C)>>1))>>1;
+		b = ((b & 0xF7DE)+((*(src+241) & 0xE79C)>>1))>>1;
+	    }
+	*(uint32_t*)(dst+0) = a|(((a & 0xF7DE)+((b & 0xE79C)>>1))<<15);
+	dst += 2;
+
+        Eh += 144;
+        if(Eh >= 216) {
+            Eh -= 216;
+            vf = 0;
+	    src += (240 - 212);
+        }
+        else {
+            vf = 1;
+	    src -= 212;
+	}
+    }
+}
+*/

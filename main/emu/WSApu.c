@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <unistd.h>
 
 #include <SDL/SDL.h>
 
@@ -11,16 +12,17 @@ SOUND Ch[4];
 SWEEP Swp;
 NOISE Noise; 
 int8_t VoiceOn;
+int32_t stereo;
 
-#define BUFSIZEN    0x1000	// ノイズ用テーブル: 0x10000 だったけどそんなにいらないと思う
-#define BPSWAV      12000	/* WSのHblankが12KHz */
+#define BUFSIZEN    0x20000	// ノイズ用テーブル(Arc the Ladの雨のシーン用に増加)
+//#define BPSWAV      12000	/* WSのHblankが12KHz */
 
-#define WAV_VOLUME 30
+//#define WAV_VOLUME 32		// 最大 (32768/(120*4+128)) = 53
 
 static uint8_t PData[4][32];
 static uint8_t PDataN[8][BUFSIZEN];
 static uint16_t RandData[BUFSIZEN];
-static int16_t sndbuffer[SND_RNGSIZE];	/* Sound Ring Buffer */	//モノラルに変更
+static int16_t sndbuffer[SND_RNGSIZE*2];	/* Sound Ring Buffer */
 
 static int32_t rBuf, wBuf;
 static int32_t freqpush[4];
@@ -31,38 +33,96 @@ extern uint8_t *Page[16];
 extern uint8_t IO[0x100];
 
 SDL_mutex *sound_mutex;
-SDL_cond *sound_cv;
 
 int32_t apuBufLen(void)
 {
 	if (wBuf >= rBuf) return (wBuf - rBuf);
-	return SND_RNGSIZE + wBuf - rBuf;
+	return (SND_RNGSIZE<<stereo) + wBuf - rBuf;
 }
 
 void mixaudioCallback(void *userdata, uint8_t *stream, int32_t len)
 {
-	uint16_t *buffer   = (uint16_t *) stream;
+	uint32_t *buffer   = (uint32_t *) stream;
 	uint32_t i;
 	
 	if ((len <= 0) || !buffer || (apuBufLen() < len)) return;
 	
 	SDL_LockMutex(sound_mutex);
 	
-	for(i = 0; i < len; i += 4)
+	for(i = 0; i < len; i += 16)
 	{
-		*buffer++ = sndbuffer[rBuf++];
-		*buffer++ = sndbuffer[rBuf++];
-		if (rBuf >= SND_RNGSIZE) rBuf = 0;
+		*buffer++ = *(uint32_t *)(sndbuffer+rBuf);
+		*buffer++ = *(uint32_t *)(sndbuffer+rBuf+2);
+		*buffer++ = *(uint32_t *)(sndbuffer+rBuf+4);
+		*buffer++ = *(uint32_t *)(sndbuffer+rBuf+6);
+		rBuf+=8;
+		if (rBuf >= (SND_RNGSIZE<<stereo)) rBuf = 0;
 	}
 
 	SDL_UnlockMutex(sound_mutex);
-	SDL_CondSignal(sound_cv);
+}
+
+void init_SDLaudio(void)
+{
+#ifdef SOUND_ON
+	if (SDL_WasInit(SDL_INIT_AUDIO))
+	{
+		SDL_CloseAudio();
+		SDL_QuitSubSystem(SDL_INIT_AUDIO);
+	}
+#ifdef TRIMUI
+	if (access("/dev/dsp1", R_OK | W_OK) == 0) {
+		setenv("AUDIODEV", "/dev/dsp1", 1);
+		stereo = 1;
+	} else {
+		setenv("AUDIODEV", "/dev/dsp", 1);
+		stereo = 0;
+	}
+#else
+#ifdef STEREO_SOUND
+	stereo = 1;
+#else
+	stereo = 0;
+#endif	//STEREO_SOUND
+#endif	//TRIMUI
+	SDL_InitSubSystem(SDL_INIT_AUDIO);
+	SDL_AudioSpec fmt, retFmt;
+
+	/*	Set up SDL sound */
+	fmt.freq = 24000;		// 24kHz
+	fmt.samples = SND_BNKSIZE;
+	fmt.format = AUDIO_S16SYS;
+	fmt.channels = stereo+1;
+	fmt.callback = mixaudioCallback;
+	fmt.userdata = NULL;
+
+    /* Open the audio device and start playing sound! */
+    if ( SDL_OpenAudio(&fmt, &retFmt) < 0 )
+	{
+        fprintf(stderr, "Unable to open audio: %s\n", SDL_GetError());
+        printf("Exiting Oswan...\n");
+        exit(1);
+    }
+#endif	//SOUND_ON
+}
+
+void check_USBplug(void)
+{
+#ifdef	TRIMUI
+	int USBaccess = access("/dev/dsp1", R_OK | W_OK);
+	if ( ((!USBaccess)&&(!stereo)) || ((USBaccess)&&(stereo)) )
+	{	// Sound Output Change
+		init_SDLaudio();
+		apuWaveCreate();
+		SDL_PauseAudio(0);
+	}
+#endif
 }
 
 void apuWaveCreate(void)
 {
-    /*memset(sndbuffer,0x00, SND_RNGSIZE);*/
-    memset(sndbuffer, 0x00, sizeof(*sndbuffer));
+	memset(sndbuffer, 0x00, sizeof(*sndbuffer));
+	rBuf = wBuf = 0;
 }
 
 void apuWaveRelease(void)
@@ -96,13 +156,11 @@ void apuInit(void)
     apuWaveCreate();
     
 	sound_mutex = SDL_CreateMutex();
-	sound_cv = SDL_CreateCond();
 }
 
 void apuEnd(void)
 {
     apuWaveRelease();
-	SDL_CondSignal(sound_cv);
 }
 
 uint32_t apuMrand(uint32_t Degree)
@@ -273,21 +331,14 @@ void apuWaveSet(void)
 {
 //	TRIMUI 変更点
 //	・マスク機能はないので sound[x] を削除
-//	・ステレオからモノラルに変更
 //	・合成は12 x 2 = 24kHz (PCM/ノイズは12kHzのまま)
 //	・point[channel] の処理を見直して音痴を改善
     static uint32_t point[4] = {1, 1, 1, 1};
-    int32_t Vol1 = 0, Vol2 = 0;
+    int32_t Vol1L = 0, Vol1R = 0, Vol2L = 0, Vol2R = 0;
     int32_t value1, value2, vVol;
     uint32_t index1, index2, channel;
     div_t divresult;
 
-#ifdef AUDIOFRAMESKIP
-    while (apuBufLen() >= (SND_RNGSIZE - 16)) SDL_Delay(1);	// buffer overrun wait
-#endif
-
-    SDL_LockMutex(sound_mutex);
-    
     apuSweep();		// sweepを計算 (12kHz)
     
     for (channel = 0; channel < 4; channel++)
@@ -314,17 +365,38 @@ void apuWaveSet(void)
 		if ((index2|divresult.rem) == 0) point[channel] = 0;	// 音痴改善
 		point[channel]++;
             }
-		// モノラル化：どちらか音量の大きい方を採用
-		Vol1 += value1 * (volLpush[channel] > volRpush[channel] ? volLpush[channel] : volRpush[channel]);
-		Vol2 += value2 * (Ch[channel].volL > Ch[channel].volR ? Ch[channel].volL : Ch[channel].volR);
+		if (stereo)
+		{
+		    Vol1L += value1 * volLpush[channel];
+		    Vol1R += value1 * volRpush[channel];
+		    Vol2L += value2 * Ch[channel].volL;
+		    Vol2R += value2 * Ch[channel].volR;
+		} else {
+		    // モノラル化：どちらか音量の大きい方を採用
+		    Vol1L += value1 * (volLpush[channel] > volRpush[channel] ? volLpush[channel] : volRpush[channel]);
+		    Vol2L += value2 * (Ch[channel].volL > Ch[channel].volR ? Ch[channel].volL : Ch[channel].volR);
+		}
         } else	point[channel] = 1;	// 無音時は波形メモリポイントをリセット
     }
     vVol = (apuVoice() - 0x80);		// PCM合成 (12kHz)
 
-    sndbuffer[wBuf++] = (Vol1 + vVol) * WAV_VOLUME;
-    sndbuffer[wBuf++] = (Vol2 + vVol) * WAV_VOLUME;
-    if (wBuf >= SND_RNGSIZE) wBuf = 0;
+#ifdef AUDIOFRAMESKIP
+    while (apuBufLen() >= ((SND_RNGSIZE<<stereo) - 16)) SDL_Delay(1);	// buffer overrun wait
+#endif
+
+    SDL_LockMutex(sound_mutex);
+
+    if (stereo)
+    {
+	*(uint32_t *)(sndbuffer+wBuf)   = (uint16_t)(Vol1L+vVol)<<5 | (uint16_t)(Vol1R+vVol)<<21; // -19456 max
+	*(uint32_t *)(sndbuffer+wBuf+2) = (uint16_t)(Vol2L+vVol)<<5 | (uint16_t)(Vol2R+vVol)<<21; // ((-8*15)*4-128)*32
+	wBuf+=4;
+    } else {
+	*(uint32_t *)(sndbuffer+wBuf)   = (uint16_t)(Vol1L+vVol)<<5 | (uint16_t)(Vol2L+vVol)<<21;
+	wBuf+=2;
+    }
+
+    if (wBuf >= (SND_RNGSIZE<<stereo) ) wBuf = 0;
 
     SDL_UnlockMutex(sound_mutex);
-    SDL_CondSignal(sound_cv);
 }

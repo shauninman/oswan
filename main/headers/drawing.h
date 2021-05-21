@@ -9,6 +9,8 @@ void take_screenshot(void);
 void upscale_224x144_to_320xXXX(uint16_t *dst, uint16_t *src, uint32_t height);
 void upscale_144x224_to_320x240_rotate(uint16_t *dst, uint16_t *src);
 void upscale_15x_sharp(uint16_t *dst, uint16_t *src);
+void upscale_15x_sharp2(uint16_t *dst, uint16_t *src);
+//void upscale_15x_scanline(uint16_t *dst, uint16_t *src);
 
 extern uint8_t FPS;
 

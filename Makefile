@@ -10,9 +10,9 @@ SYSROOT     := $(CHAINPREFIX)/arm-buildroot-linux-gnueabi/sysroot
 SDL_CFLAGS  := $(shell $(SYSROOT)/usr/bin/sdl-config --cflags)
 SDL_LIBS    := $(shell $(SYSROOT)/usr/bin/sdl-config --libs)
 
-CFLAGS 		= -O2 -marm -march=armv5te -mtune=arm926ej-s
+CFLAGS 		= -Ofast -marm -march=armv5te -mtune=arm926ej-s
 CFLAGS		+= -fdata-sections -ffunction-sections -fno-PIC
-CFLAGS		+= -flto -fomit-frame-pointer -fno-builtin -fno-strict-aliasing
+CFLAGS		+= -fomit-frame-pointer -fno-strict-aliasing
 CFLAGS		+= -Wno-write-strings -Wno-sign-compare
 CFLAGS		+= $(SDL_CFLAGS) 
 CFLAGS		+= -I./main/emu -I./main/sdl -I./main/headers ${DEFINES}
@@ -25,8 +25,9 @@ LDFLAGS		+= -lSDL_image -lSDL_ttf -ldl
 
 ifeq ($(PROFILE), YES)
 OUT	 		= oswan_pm
-CFLAGS += -fprofile-generate -fprofile-dir=/mnt/SDCARD/profile/oswan
+CFLAGS  += -fprofile-generate -fprofile-dir=/mnt/SDCARD/profile/oswan
 LDFLAGS += -lgcov -fprofile-generate -fprofile-dir=/mnt/SDCARD/profile/oswan
+DEFINES	+= -DMAX_SKIP_COUNT=0
 else
 OUT	 		= oswan
 ifeq ($(PROFILE), APPLY)

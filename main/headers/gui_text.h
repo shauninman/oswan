@@ -14,7 +14,7 @@ MENUITEM MainMenuItems[] = {
 
 #if !defined(NATIVE_RESOLUTION)
 	{"Rotate: ", (int16_t *) &GameConf.m_Rotate, 2, (int8_t *) &mnuOnOff, NULL},
-	{"HScale: ", (int16_t *) &GameConf.m_ScreenRatioH, 3, (int8_t *) &mnuRatioH, NULL},
+	{"HScale: ", (int16_t *) &GameConf.m_ScreenRatioH, 4, (int8_t *) &mnuRatioH, NULL},
 	{"VScale: ", (int16_t *) &GameConf.m_ScreenRatioV, 2, (int8_t *) &mnuRatioV, NULL},
 #endif
 

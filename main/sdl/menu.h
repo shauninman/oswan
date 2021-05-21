@@ -34,8 +34,8 @@ void menuSaveBmp(void);
 
 int8_t mnuABXY[3][16] = {"H-Mode", "V-Mode","Auto"};
 int8_t mnuOnOff[3][16] = {"Off", "On","Auto"};
-int8_t mnuSaves[10][16] = { "1","2","3","4","5","6","7","8","9"};
-int8_t mnuRatioH[4][16] = { "Native","Fullscreen","Aspect", "1.5x Sharp"};
+int8_t mnuSaves[9][16] = { "1","2","3","4","5","6","7","8","9"};
+int8_t mnuRatioH[5][16] = { "Native","Fullscreen","Aspect","1.5x Sharp","1.5x Sharp2"};
 int8_t mnuRatioV[3][16] = { "Native","Fullscreen","Wide"  };
 
 #ifdef _TINSPIRE

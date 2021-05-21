@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-typedef void  (*WriteMemFn) (uint32_t A, uint8_t V);
-extern WriteMemFn WriteMemFnTable[0x10];
 uint8_t ReadMem(uint32_t A);
 void WriteMem(uint32_t A, uint8_t V);
 void WriteIO(uint32_t A, uint8_t V);

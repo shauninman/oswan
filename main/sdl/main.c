@@ -67,12 +67,17 @@ void graphics_paint(void)
 		FPS = pastFPS;
 		pastFPS = 0;
 		lastTick = newTick;
+#ifdef SOUND_ON
+#ifdef TRIMUI
+		check_USBplug();
+#endif
+#endif
 	}
-//	#ifdef FRAMESKIP
-//	FrameSkip = 80 - FPS;
-//	if (FrameSkip < 0) FrameSkip = 0;
-//	else if (FrameSkip > 4) FrameSkip=4;
-//	#endif
+#ifdef FRAMESKIP
+	FrameSkip = 80 - FPS;
+	if (FrameSkip < 0) FrameSkip = 0;
+	else if (FrameSkip > 4) FrameSkip=4;
+#endif
 }
 
 void initSDL(void) 
@@ -80,29 +85,8 @@ void initSDL(void)
 	/* Get current resolution, does nothing on Windowed or bare metal platroms */
 	Get_resolution();
 	SetVideo(0);
-
-#ifdef SOUND_ON
-	SDL_Init(SDL_INIT_AUDIO);
-	SDL_AudioSpec fmt, retFmt;
-	
-	/*	Set up SDL sound */
-	fmt.freq = 24000;		// 24kHz
-	fmt.samples = 512;		// Shorter to prevent sound delay
-	fmt.format = AUDIO_S16SYS;
-	fmt.channels = 1;		// Mono
-	fmt.callback = mixaudioCallback;
-	fmt.userdata = NULL;
-
-    /* Open the audio device and start playing sound! */
-    if ( SDL_OpenAudio(&fmt, &retFmt) < 0 )
-	{
-        fprintf(stderr, "Unable to open audio: %s\n", SDL_GetError());
-        printf("Exiting Oswan...\n");
-        exit(1);
-    }
-#endif
+	init_SDLaudio();
 }
-
 
 int main(int argc, char *argv[]) 
 {
@@ -224,7 +208,13 @@ int main(int argc, char *argv[])
 					screen_showtopmenu();
 				}
 				#ifdef SOUND_ON
-				if (cartridge_IsLoaded()) SDL_PauseAudio(0);
+				if (cartridge_IsLoaded())
+				{
+					#ifdef	TRIMUI
+					check_USBplug();
+					#endif
+					SDL_PauseAudio(0);
+				}
 				#endif
 				#ifndef NO_WAIT
 				nextTick = SDL_UXTimerRead() + interval;

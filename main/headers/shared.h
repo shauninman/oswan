@@ -340,7 +340,7 @@
 
 typedef struct {
 	uint16_t m_Rotate;		// 0 = Off, 1 = On, 2 = Auto
-	uint16_t m_ScreenRatioH;	// 0 = Native, 1 = Fullscreen, 2 = Aspect, 3 = 1.5x Sharp
+	uint16_t m_ScreenRatioH;	// 0 = Native, 1 = Fullscreen, 2 = Aspect, 3 = 1.5x Sharp, 4 = 1.5x Sharp 2
 	uint16_t m_ScreenRatioV;	// 0 = Rotate, 1 = RotateFull, 2 = RotateWide
 	uint16_t reserved1[11]; 	// UNUSED
 	uint16_t m_DisplayFPS;		// 0 = Off, 1 = On
