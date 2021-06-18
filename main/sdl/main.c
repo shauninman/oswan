@@ -69,7 +69,7 @@ void graphics_paint(void)
 		lastTick = newTick;
 #ifdef SOUND_ON
 #ifdef TRIMUI
-		check_USBplug();
+		// check_USBplug();
 #endif
 #endif
 	}
@@ -211,7 +211,7 @@ int main(int argc, char *argv[])
 				if (cartridge_IsLoaded())
 				{
 					#ifdef	TRIMUI
-					check_USBplug();
+					// check_USBplug();
 					#endif
 					SDL_PauseAudio(0);
 				}
