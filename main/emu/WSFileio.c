@@ -549,7 +549,7 @@ int32_t WsSaveState(const int8_t *savename, int32_t num)
     }
 	fwrite(Palette, sizeof(uint16_t), 16 * 16, fp);
     fclose(fp);
-
+	sync();
     return 0;
 }
 
